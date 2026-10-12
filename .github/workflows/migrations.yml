@@ -1,0 +1,32 @@
+name: Database migrations
+
+# Staging gets every merge to main; production is promoted manually (or by tagging a release).
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [staging, production]
+        default: staging
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'release' && 'production' || inputs.environment || 'staging' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase link --project-ref "$SUPABASE_PROJECT_REF" -p "$SUPABASE_DB_PASSWORD"
+      - run: supabase db push -p "$SUPABASE_DB_PASSWORD"

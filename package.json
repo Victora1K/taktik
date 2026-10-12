@@ -1,0 +1,72 @@
+{
+  "name": "taktik",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:supabase": "node scripts/e2e-supabase.mjs",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "db:types": "supabase gen types typescript --local > lib/supabase/database.types.ts",
+    "loadtest": "node scripts/realtime-loadtest.mjs"
+  },
+  "dependencies": {
+    "@sentry/nextjs": "^9.0.0",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.50.0",
+    "@vercel/analytics": "^1.5.0",
+    "clsx": "^2.1.1",
+    "konva": "^9.3.20",
+    "lucide-react": "^0.525.0",
+    "nanoid": "^5.1.5",
+    "next": "^15.5.0",
+    "posthog-js": "^1.255.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-konva": "^19.2.7",
+    "react-markdown": "^10.1.0",
+    "tailwind-merge": "^3.3.1",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27",
+    "zustand": "^5.0.6"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.49.1",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^20.19.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "^15.5.0",
+    "prettier": "^3.6.2",
+    "supabase": "^2.120.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "supabase",
+      "unrs-resolver"
+    ]
+  }
+}
