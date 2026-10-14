@@ -59,7 +59,7 @@ function LoginForm() {
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-ink-800 bg-ink-900 p-6">
         <Logo />
         <div>
-          <h1 className="text-xl font-bold">Sign in to Taktik</h1>
+          <h1 className="text-xl font-bold">Sign in to taktiks</h1>
           <p className="mt-1 text-sm text-slate-400">No password needed. We will email you a sign-in link.</p>
         </div>
         {sent ? (
