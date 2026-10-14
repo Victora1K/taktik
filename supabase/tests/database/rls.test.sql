@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(37);
+select plan(43);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as postgres): one team with an owner, coach, member and viewer, plus an outsider.
@@ -86,12 +86,18 @@ select is(realtime_tactic_access('tactic:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 
 select lives_ok(
   $$insert into comments (tactic_id, body) values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Looks good')$$,
   'viewer can still comment');
+select lives_ok(
+  $$insert into team_messages (team_id, body) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'See you at training')$$,
+  'viewer can send a team message');
 
 -- ---------------------------------------------------------------------------
 -- Member: edits tactics, cannot administer.
 -- ---------------------------------------------------------------------------
 set local request.jwt.claims to '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
 
+select is((select body from team_messages), 'See you at training', 'member can read the team chat');
+delete from team_messages where body = 'See you at training';
+select is((select count(*)::int from team_messages), 1, 'member cannot delete someone else''s message');
 select is((select title from tactics where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'), 'High press',
   'viewer update was silently ignored');
 select lives_ok(
@@ -150,6 +156,22 @@ reset role;
 update tactics set visibility = 'link' where id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 set local role anon;
 select is((select title from get_public_tactic('press-slug')), 'Mid block', 'link tactics are readable anonymously');
+
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('66666666-6666-6666-6666-666666666666', 'newbie@test.dev', '{"full_name":"Ned New"}');
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+select is((select count(*)::int from team_messages), 0, 'a non-member cannot read the team chat');
+select throws_ok(
+  $$insert into team_messages (team_id, body) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'let me in')$$,
+  '42501', null, 'a non-member cannot send a team message');
+reset role;
+insert into team_members (team_id, user_id, role) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '66666666-6666-6666-6666-666666666666', 'member');
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"66666666-6666-6666-6666-666666666666","role":"authenticated"}';
+select is((select body from team_messages), 'See you at training', 'a new member can read chat from before they joined');
 
 select * from finish();
 rollback;

@@ -11,6 +11,7 @@ export function TeamNav({ team }: { team: Team }) {
   const base = `/teams/${team.id}`;
   const tabs = [
     { href: base, label: "Tactics" },
+    { href: `${base}/chat`, label: "Chat" },
     { href: `${base}/members`, label: "Members" },
     { href: `${base}/settings`, label: "Settings" },
   ];

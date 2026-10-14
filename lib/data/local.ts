@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import { fromBase64, toBase64 } from "@/lib/collab/encoding";
 import type { TacticState } from "@/lib/engine/types";
 import type {
+  ChatMessage,
   Comment,
   DataStore,
   Invite,
@@ -33,10 +34,19 @@ interface LocalDb {
   tactics: TacticMeta[];
   versions: TacticVersion[];
   comments: Omit<Comment, "authorName" | "authorColor">[];
+  messages: Omit<ChatMessage, "authorName" | "authorColor">[];
   notifications: (Omit<Notification, "actorName" | "tacticTitle"> & { userId: string; actorId: string })[];
 }
 
-const EMPTY: LocalDb = { me: null, teams: [], tactics: [], versions: [], comments: [], notifications: [] };
+const EMPTY: LocalDb = {
+  me: null,
+  teams: [],
+  tactics: [],
+  versions: [],
+  comments: [],
+  messages: [],
+  notifications: [],
+};
 const COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#f97316", "#0891b2", "#db2777"];
 
 function now() {
@@ -324,6 +334,59 @@ export class LocalDataStore implements DataStore {
     const db = this.read();
     db.versions = db.versions.filter((v) => v.id !== id);
     this.write(db, "versions");
+  }
+
+  // ---------- team chat ----------
+
+  async listMessages(teamId: string, opts?: { before?: string; limit?: number }): Promise<ChatMessage[]> {
+    const db = this.read();
+    const me = this.ensureMe(db);
+    const limit = opts?.limit ?? 50;
+    return (db.messages ?? [])
+      .filter((m) => m.teamId === teamId && (!opts?.before || m.createdAt < opts.before))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit)
+      .reverse()
+      .map((m) => ({
+        ...m,
+        authorName: m.authorId === me.id ? me.displayName : "Teammate",
+        authorColor: m.authorId === me.id ? me.avatarColor : "#64748b",
+      }));
+  }
+
+  async sendMessage(teamId: string, body: string): Promise<ChatMessage> {
+    const text = body.trim();
+    if (!text) throw new Error("Message is empty");
+    const db = this.read();
+    const me = this.ensureMe(db);
+    const message: Omit<ChatMessage, "authorName" | "authorColor"> = {
+      id: nanoid(),
+      teamId,
+      authorId: me.id,
+      body: text.slice(0, 2000),
+      createdAt: now(),
+    };
+    db.messages.push(message);
+    this.write(db, `messages:${teamId}`);
+    return { ...message, authorName: me.displayName, authorColor: me.avatarColor };
+  }
+
+  async deleteMessage(id: string) {
+    const db = this.read();
+    const message = db.messages.find((m) => m.id === id);
+    if (!message) return;
+    db.messages = db.messages.filter((m) => m.id !== id);
+    this.write(db, `messages-deleted:${message.teamId}:${id}`);
+  }
+
+  subscribeMessages(teamId: string, cb: (change?: { deletedId?: string }) => void) {
+    const prefix = `messages-deleted:${teamId}:`;
+    const fn = (topic: string) => {
+      if (topic === `messages:${teamId}`) cb();
+      else if (topic.startsWith(prefix)) cb({ deletedId: topic.slice(prefix.length) });
+    };
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
   }
 
   // ---------- comments ----------

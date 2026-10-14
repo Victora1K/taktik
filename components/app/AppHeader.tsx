@@ -184,7 +184,7 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-30 border-b border-ink-800 bg-ink-950/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
-        <Logo href="/teams" />
+        <Logo />
         <div className="min-w-0 flex-1">{children}</div>
         {data.mode === "local" && (
           <span

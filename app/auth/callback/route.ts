@@ -7,8 +7,8 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") as EmailOtpType | null;
-  const nextParam = url.searchParams.get("next") ?? "/teams";
-  const next = /^\/(?![/\\])/.test(nextParam) ? nextParam : "/teams";
+  const nextParam = url.searchParams.get("next") ?? "/";
+  const next = /^\/(?![/\\])/.test(nextParam) ? nextParam : "/";
 
   const supabase = await getServerSupabase();
   let ok = false;

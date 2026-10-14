@@ -1,6 +1,6 @@
 import { Clapperboard, Layers, MessageSquare, MousePointer2, Share2, Users } from "lucide-react";
 import Link from "next/link";
-import { Logo } from "@/components/app/Logo";
+import { MarketingHeader } from "@/components/app/MarketingHeader";
 import { SportPreview } from "@/components/app/SportPreview";
 import { SPORT_LIST, SPORTS } from "@/lib/sports";
 
@@ -40,20 +40,7 @@ const FEATURES = [
 export default function LandingPage() {
   return (
     <div className="min-h-dvh">
-      <header className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Logo />
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/login" className="text-slate-300 hover:text-white">
-            Sign in
-          </Link>
-          <Link
-            href="/teams"
-            className="rounded-md bg-brand-500 px-3.5 py-2 font-semibold text-ink-950 hover:bg-brand-400"
-          >
-            Open the board
-          </Link>
-        </nav>
-      </header>
+      <MarketingHeader />
 
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-10 lg:grid-cols-2">
         <div>

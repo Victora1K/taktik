@@ -3,6 +3,7 @@ import { fromByteaHex, toBase64, toByteaHex } from "@/lib/collab/encoding";
 import type { TacticState } from "@/lib/engine/types";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import type {
+  ChatMessage,
   Comment,
   DataStore,
   Invite,
@@ -386,6 +387,68 @@ export class SupabaseDataStore implements DataStore {
 
   async deleteVersion(id: string) {
     check(await this.sb.from("tactic_versions").delete().eq("id", id));
+  }
+
+  // ---------- team chat ----------
+
+  async listMessages(teamId: string, opts?: { before?: string; limit?: number }): Promise<ChatMessage[]> {
+    let q = this.sb
+      .from("team_messages")
+      .select(
+        "id, team_id, author_id, body, created_at, profiles!team_messages_author_id_fkey(display_name, avatar_color)",
+      )
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false })
+      .limit(opts?.limit ?? 50);
+    if (opts?.before) q = q.lt("created_at", opts.before);
+    const rows = (check(await q) as any[]).slice().reverse();
+    return rows.map((r) => this.mapMessage(r));
+  }
+
+  async sendMessage(teamId: string, body: string): Promise<ChatMessage> {
+    const text = body.trim();
+    if (!text) throw new Error("Message is empty");
+    const uid = await this.userId();
+    const row = check(
+      await this.sb
+        .from("team_messages")
+        .insert({ team_id: teamId, author_id: uid, body: text.slice(0, 2000) })
+        .select(
+          "id, team_id, author_id, body, created_at, profiles!team_messages_author_id_fkey(display_name, avatar_color)",
+        )
+        .single(),
+    );
+    return this.mapMessage(row);
+  }
+
+  async deleteMessage(id: string) {
+    check(await this.sb.from("team_messages").delete().eq("id", id));
+  }
+
+  subscribeMessages(teamId: string, cb: (change?: { deletedId?: string }) => void) {
+    return this.feed(`team-chat:${teamId}`, (channel) =>
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "team_messages", filter: `team_id=eq.${teamId}` },
+        (payload) => {
+          const deletedId = payload.eventType === "DELETE" ? (payload.old as { id?: string }).id : undefined;
+          cb(deletedId ? { deletedId } : undefined);
+        },
+      ),
+    );
+  }
+
+  private mapMessage(row: any): ChatMessage {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      id: row.id,
+      teamId: row.team_id,
+      authorId: row.author_id,
+      authorName: profile?.display_name || "Player",
+      authorColor: profile?.avatar_color || "#64748b",
+      body: row.body,
+      createdAt: row.created_at,
+    };
   }
 
   // ---------- comments ----------

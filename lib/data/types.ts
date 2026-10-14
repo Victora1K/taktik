@@ -120,6 +120,16 @@ export interface NewComment {
   mentions?: string[];
 }
 
+export interface ChatMessage {
+  id: string;
+  teamId: string;
+  authorId: string;
+  authorName: string;
+  authorColor: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface Notification {
   id: string;
   kind: "mention" | "reply";
@@ -187,6 +197,11 @@ export interface DataStore {
   listVersions(tacticId: string): Promise<TacticVersion[]>;
   createVersion(tacticId: string, name: string, state: TacticState): Promise<TacticVersion>;
   deleteVersion(id: string): Promise<void>;
+
+  listMessages(teamId: string, opts?: { before?: string; limit?: number }): Promise<ChatMessage[]>;
+  sendMessage(teamId: string, body: string): Promise<ChatMessage>;
+  deleteMessage(id: string): Promise<void>;
+  subscribeMessages(teamId: string, cb: (change?: { deletedId?: string }) => void): () => void;
 
   listComments(tacticId: string): Promise<Comment[]>;
   createComment(input: NewComment): Promise<Comment>;

@@ -42,7 +42,7 @@ double_confirm_changes = true
 enable_confirmations = false
 
 [auth.email.template.magic_link]
-subject = "Your Taktik sign-in link"
+subject = "Your taktiks sign-in code"
 content_path = "./supabase/templates/magic_link.html"
 
 [auth.external.google]
