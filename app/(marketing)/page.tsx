@@ -61,7 +61,7 @@ export default function LandingPage() {
             Draw the play. <span className="text-brand-400">Animate it.</span> Win it together.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-slate-300">
-            Taktik is a collaborative tactics board for soccer, basketball and volleyball. Pick a sport, set
+            taktiks is a collaborative tactics board for soccer, basketball and volleyball. Pick a sport, set
             your players and opponents, record their movement, and work through the plan with your whole team
             in real time.
           </p>
@@ -183,7 +183,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-slate-500">
-        <span>Taktik - tactics, together.</span>
+        <span>taktiks - tactics, together.</span>
         <span className="flex gap-4">
           <Link href="/terms" className="hover:text-slate-300">
             Terms
