@@ -29,8 +29,8 @@ For **each** project:
    After that, GitHub Actions takes over (see [CI/CD](#4-github-actions)).
 
 2. **Auth -> URL Configuration.**
-   - Site URL: `https://taktik.app` (prod) or your staging alias (for example `https://staging.taktik.app`).
-   - Redirect URLs: `https://taktik.app/auth/callback`, plus for staging
+   - Site URL: `https://taktiks.co` (prod) or your staging alias (for example `https://staging.taktiks.co`).
+   - Redirect URLs: `https://taktiks.co/auth/callback`, plus for staging
      `https://*-<your-vercel-team>.vercel.app/auth/callback` so preview deploys can sign in.
 
 3. **Auth -> Email Templates -> Magic Link.** Paste `supabase/templates/magic_link.html` and set the subject to
@@ -64,9 +64,9 @@ For **each** project:
    | `NEXT_PUBLIC_SUPABASE_URL`      | `https://<ref>.supabase.co`                                                                         |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key                                                                                            |
    | `SUPABASE_SERVICE_ROLE_KEY`     | service role key (server only; used for email, cron and rate limits)                                |
-   | `NEXT_PUBLIC_SITE_URL`          | `https://taktik.app` for Production; leave it unset for Preview, which then uses the deployment URL |
+   | `NEXT_PUBLIC_SITE_URL`          | `https://taktiks.co` for Production; leave it unset for Preview, which then uses the deployment URL |
    | `RESEND_API_KEY`                | from resend.com                                                                                     |
-   | `EMAIL_FROM`                    | `Taktik <notifications@taktik.app>` (verified domain)                                               |
+   | `EMAIL_FROM`                    | `Taktik <notifications@taktiks.co>` (verified domain)                                               |
    | `CRON_SECRET`                   | a random 32+ character string; Vercel Cron sends it automatically                                   |
    | `NEXT_PUBLIC_SENTRY_DSN`        | Sentry project DSN                                                                                  |
    | `NEXT_PUBLIC_POSTHOG_KEY`       | PostHog project key (optional)                                                                      |
@@ -79,7 +79,7 @@ Every PR now gets a preview URL backed by the staging database.
 
 ## 3. Custom domain
 
-1. In Vercel, open Settings -> Domains and add `taktik.app` and `www.taktik.app` (redirect `www` to the apex).
+1. In Vercel, open Settings -> Domains and add `taktiks.co` and `www.taktiks.co` (redirect `www` to the apex).
 2. At your DNS provider, add an `A` record from `@` to `76.76.21.21` and a `CNAME` from `www` to
    `cname.vercel-dns.com`. Vercel provisions TLS automatically.
 3. In Resend, verify the domain (SPF, DKIM, and optionally DMARC records) so emails don't land in spam.
@@ -108,7 +108,7 @@ Also enable branch protection on `main` that requires the `checks` and `database
 
 - **Errors:** Sentry captures client and server errors (`instrumentation*.ts`). Set an alert for new issues
   and for error-rate spikes.
-- **Uptime:** point an uptime monitor (Better Stack, UptimeRobot, or Checkly) at `https://taktik.app/api/health`
+- **Uptime:** point an uptime monitor (Better Stack, UptimeRobot, or Checkly) at `https://taktiks.co/api/health`
   every minute. It returns 503 when the database API is unreachable.
 - **Database and Realtime:** use Supabase's Reports pages and the Realtime inspector, and set usage alerts in
   the organization's billing settings.

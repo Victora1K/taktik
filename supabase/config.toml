@@ -32,7 +32,7 @@ file_size_limit = "5MiB"
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/auth/callback", "https://*.vercel.app/auth/callback"]
+additional_redirect_urls = ["http://localhost:3000/auth/callback", "https://taktiks.co/auth/callback", "https://www.taktiks.co/auth/callback", "https://*.vercel.app/auth/callback"]
 jwt_expiry = 3600
 enable_signup = true
 
