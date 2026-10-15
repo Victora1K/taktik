@@ -1,11 +1,14 @@
 import type * as Y from "yjs";
 import { makeLayer, makeToken, newId, nextNumber } from "@/lib/engine/factory";
+import type { Point } from "@/lib/engine/interpolate";
+import { orderedPhases, phaseBounds, phasesDuration, routeKeyframes } from "@/lib/engine/phases";
 import { cutRange, shiftKeyframes, trackEnd, trackStart, trimTrack } from "@/lib/engine/tracks";
 import type {
   Annotation,
   Easing,
   Keyframe,
   Layer,
+  Phase,
   TacticMetaDoc,
   TeamSide,
   Token,
@@ -17,6 +20,7 @@ import { collection, LOCAL_ORIGIN, metaMap } from "./doc";
 const tokens = (doc: Y.Doc) => collection<Token>(doc, "tokens");
 const layers = (doc: Y.Doc) => collection<Layer>(doc, "layers");
 const tracks = (doc: Y.Doc) => collection<Track>(doc, "tracks");
+const phases = (doc: Y.Doc) => collection<Phase>(doc, "phases");
 const annotations = (doc: Y.Doc) => collection<Annotation>(doc, "annotations");
 const groups = (doc: Y.Doc) => collection<TokenGroup>(doc, "groups");
 
@@ -30,6 +34,105 @@ export function setMeta(doc: Y.Doc, patch: Partial<TacticMetaDoc>) {
   tx(doc, () => {
     const m = metaMap(doc);
     for (const [k, v] of Object.entries(patch)) m.set(k, v);
+  });
+}
+
+// ---------- timed phases ----------
+
+function safePhaseDuration(durationMs: number) {
+  return Math.max(500, Math.min(30_000, Math.round(durationMs)));
+}
+
+function syncPhaseDuration(doc: Y.Doc) {
+  let end = phasesDuration(phases(doc).toJSON());
+  for (const track of tracks(doc).values()) end = Math.max(end, trackEnd(track));
+  metaMap(doc).set("durationMs", Math.max(1000, end));
+}
+
+export function addPhase(doc: Y.Doc, durationMs = 3000): Phase {
+  const ordered = orderedPhases(phases(doc).toJSON());
+  const phase: Phase = {
+    id: newId(),
+    name: `Phase ${ordered.length + 1}`,
+    durationMs: safePhaseDuration(durationMs),
+    order: ordered.length,
+  };
+  tx(doc, () => {
+    phases(doc).set(phase.id, phase);
+    syncPhaseDuration(doc);
+  });
+  return phase;
+}
+
+export function updatePhaseDuration(doc: Y.Doc, phaseId: string, durationMs: number) {
+  tx(doc, () => {
+    const pmap = phases(doc);
+    const phase = pmap.get(phaseId);
+    const before = phaseBounds(pmap.toJSON(), phaseId);
+    if (!phase || !before) return;
+    const nextDuration = safePhaseDuration(durationMs);
+    const delta = nextDuration - phase.durationMs;
+    if (!delta) return;
+    const later = new Set(
+      orderedPhases(pmap.toJSON())
+        .filter((candidate) => candidate.order > phase.order)
+        .map((candidate) => candidate.id),
+    );
+    pmap.set(phaseId, { ...phase, durationMs: nextDuration });
+    const tmap = tracks(doc);
+    for (const [id, track] of tmap.entries()) {
+      if (track.phaseId === phaseId) {
+        const span = Math.max(1, before.end - before.start);
+        const keyframes = track.keyframes.map((keyframe) => ({
+          ...keyframe,
+          t: Math.round(before.start + ((keyframe.t - before.start) / span) * nextDuration),
+        }));
+        tmap.set(id, { ...track, keyframes: keyframes.map(roundKf) });
+      } else if (track.phaseId && later.has(track.phaseId)) {
+        tmap.set(id, { ...track, keyframes: shiftKeyframes(track.keyframes, delta).map(roundKf) });
+      }
+    }
+    syncPhaseDuration(doc);
+  });
+}
+
+export function commitPhaseRoute(
+  doc: Y.Doc,
+  opts: { phaseId: string; tokenId: string; layerId: string; points: Point[]; userId?: string },
+): Track | null {
+  let created: Track | null = null;
+  tx(doc, () => {
+    const bounds = phaseBounds(phases(doc).toJSON(), opts.phaseId);
+    if (!bounds || !tokens(doc).has(opts.tokenId) || !layers(doc).has(opts.layerId)) return;
+    const keyframes = routeKeyframes(opts.points, bounds.start, bounds.end).map(roundKf);
+    if (keyframes.length < 2) return;
+    const tmap = tracks(doc);
+    for (const [id, track] of [...tmap.entries()])
+      if (track.phaseId === opts.phaseId && track.tokenId === opts.tokenId && track.layerId === opts.layerId)
+        tmap.delete(id);
+    const id = newId();
+    created = {
+      id,
+      tokenId: opts.tokenId,
+      layerId: opts.layerId,
+      phaseId: opts.phaseId,
+      keyframes,
+      easing: "smooth",
+      createdBy: opts.userId,
+    };
+    tmap.set(id, created);
+    syncPhaseDuration(doc);
+  });
+  return created;
+}
+
+export function clearPhaseRoutes(doc: Y.Doc, phaseId: string, tokenIds: string[], layerId?: string) {
+  const selected = new Set(tokenIds);
+  tx(doc, () => {
+    for (const [id, track] of [...tracks(doc).entries()])
+      if (track.phaseId === phaseId && selected.has(track.tokenId) && (!layerId || track.layerId === layerId))
+        tracks(doc).delete(id);
+    syncPhaseDuration(doc);
   });
 }
 

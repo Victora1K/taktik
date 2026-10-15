@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findSegment, interpolate, samplePath } from "@/lib/engine/interpolate";
+import { orderedPhases, phaseBounds, phaseAtTime, phasesDuration, routeKeyframes } from "@/lib/engine/phases";
 import { Recorder } from "@/lib/engine/record";
 import { quantize, simplify } from "@/lib/engine/simplify";
 import {
@@ -152,6 +153,35 @@ describe("tracks", () => {
     expect(trimmed[0].x).toBeCloseTo(5);
     expect(shiftKeyframes(tr.keyframes, -500).map((k) => k.t)).toEqual([0, 1000, 2000]);
     expect(shiftKeyframes(tr.keyframes, 250, 1, 2)[0]).toEqual({ t: 250, x: 1, y: 2 });
+  });
+});
+
+describe("timed phases", () => {
+  const phases = {
+    b: { id: "b", name: "Phase 2", durationMs: 5000, order: 1 },
+    a: { id: "a", name: "Phase 1", durationMs: 3000, order: 0 },
+  };
+
+  it("orders phases and computes contiguous time windows", () => {
+    expect(orderedPhases(phases).map((phase) => phase.id)).toEqual(["a", "b"]);
+    expect(phaseBounds(phases, "a")).toEqual({ start: 0, end: 3000 });
+    expect(phaseBounds(phases, "b")).toEqual({ start: 3000, end: 8000 });
+    expect(phasesDuration(phases)).toBe(8000);
+    expect(phaseAtTime(phases, 4500)?.id).toBe("b");
+  });
+
+  it("times route points by distance and pins the final frame", () => {
+    const route = routeKeyframes(
+      [
+        { x: 0, y: 0 },
+        { x: 3, y: 0 },
+        { x: 3, y: 4 },
+      ],
+      1000,
+      8000,
+    );
+    expect(route.map((point) => point.t)).toEqual([1000, 4000, 8000]);
+    expect(route.at(-1)).toEqual({ t: 8000, x: 3, y: 4 });
   });
 });
 

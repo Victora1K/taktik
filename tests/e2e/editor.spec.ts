@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { createTactic, dragToken, expectEventually, getState, tokenClient, tokenId } from "./helpers";
+import {
+  createTactic,
+  dragToken,
+  expectEventually,
+  fieldClient,
+  getState,
+  tokenClient,
+  tokenId,
+} from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -114,6 +122,95 @@ test("undo and redo a deletion", async ({ page }) => {
   await expectEventually(
     async () => Object.keys((await getState(page)).tokens).length,
     (n) => n === before - 1,
+  );
+});
+
+test("builds simultaneous timed routes and shifts chained phases when duration changes", async ({ page }) => {
+  await createTactic(page, "soccer");
+  await page.getByRole("button", { name: "Add phase" }).click();
+  let state = await getState(page);
+  const players = (Object.values(state.tokens) as any[])
+    .filter((token) => token.team !== "ball")
+    .slice(0, 2)
+    .map((token) => token.id);
+
+  for (const [index, id] of players.entries()) {
+    const token = await tokenClient(page, id);
+    state = await getState(page);
+    const destination = await fieldClient(page, state.tokens[id].x + 5, state.tokens[id].y + index + 2);
+    await page.keyboard.press("g");
+    await expect(page.getByLabel("Draw timed route")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("board")).toHaveCSS("cursor", "crosshair");
+    await page.mouse.click(token.x, token.y);
+    await expectEventually(
+      () => page.evaluate(() => (window as any).__taktik.editor.getState().selectedTokens as string[]),
+      (selected) => selected[0] === id,
+    );
+    await page.mouse.click(destination.x, destination.y);
+    await page.getByRole("button", { name: "Done route" }).click();
+  }
+  await expectEventually(
+    async () => Object.values((await getState(page)).tracks).filter((track: any) => track.phaseId).length,
+    (count) => count === 2,
+  );
+  state = await getState(page);
+  let routes = Object.values(state.tracks).filter((track: any) => track.phaseId) as any[];
+  expect(routes).toHaveLength(2);
+  expect(routes.map((track) => track.keyframes.map((point: any) => point.t))).toEqual([
+    [0, 3000],
+    [0, 3000],
+  ]);
+
+  await page.getByRole("button", { name: "Next phase" }).click();
+  const token = await tokenClient(page, players[0]);
+  const destination = await fieldClient(page, state.tokens[players[0]].x + 8, state.tokens[players[0]].y + 5);
+  await page.keyboard.press("g");
+  await expect(page.getByLabel("Draw timed route")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("board")).toHaveCSS("cursor", "crosshair");
+  await page.mouse.click(token.x, token.y);
+  await page.mouse.click(destination.x, destination.y);
+  await page.getByRole("button", { name: "Done route" }).click();
+  await expectEventually(
+    async () => Object.values((await getState(page)).tracks).filter((track: any) => track.phaseId).length,
+    (count) => count === 3,
+  );
+  state = await getState(page);
+  routes = Object.values(state.tracks).filter((track: any) => track.phaseId) as any[];
+  expect(routes).toHaveLength(3);
+  expect(routes.some((track) => track.keyframes[0].t === 3000 && track.keyframes.at(-1).t === 6000)).toBe(
+    true,
+  );
+
+  await page.getByRole("button", { name: /Phase 1/ }).click();
+  const duration = page.getByLabel("Active phase duration in seconds");
+  await page.waitForTimeout(600);
+  await duration.fill("5");
+  await duration.press("Enter");
+  await expectEventually(
+    async () =>
+      (Object.values((await getState(page)).phases) as any[]).some((phase) => phase.durationMs === 5000),
+    Boolean,
+  );
+  state = await getState(page);
+  const phases = (Object.values(state.phases) as any[]).sort((a, b) => a.order - b.order);
+  expect(phases.map((phase) => phase.durationMs)).toEqual([5000, 3000]);
+  const phaseTwo = routes.find((track) => track.phaseId === phases[1].id);
+  const shifted = state.tracks[phaseTwo.id];
+  expect(shifted.keyframes[0].t).toBe(5000);
+  expect(shifted.keyframes.at(-1).t).toBe(8000);
+
+  await duration.blur();
+  await page.keyboard.press("Control+z");
+  await expectEventually(
+    async () =>
+      (Object.values((await getState(page)).phases) as any[]).sort((a, b) => a.order - b.order)[0].durationMs,
+    (value) => value === 3000,
+  );
+  await page.keyboard.press("Control+Shift+z");
+  await expectEventually(
+    async () =>
+      (Object.values((await getState(page)).phases) as any[]).sort((a, b) => a.order - b.order)[0].durationMs,
+    (value) => value === 5000,
   );
 });
 

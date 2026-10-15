@@ -3,6 +3,7 @@ import { Recorder } from "@/lib/engine/record";
 import { activeLayerIds } from "@/lib/engine/tracks";
 import type { Point } from "@/lib/engine/interpolate";
 import { onTick, pause } from "./clock";
+import { cancelRoute } from "./phase-routing";
 import { getSession, setPresence } from "./session";
 import { useEditor, usePlayback } from "./store";
 
@@ -31,6 +32,8 @@ export function isRecording() {
 export function startRecording() {
   const session = getSession();
   if (!session || session.readOnly || recorder) return;
+  cancelRoute();
+  useEditor.setState({ tool: "select" });
   const { time } = usePlayback.getState();
   recorder = new Recorder(time);
   locked.clear();

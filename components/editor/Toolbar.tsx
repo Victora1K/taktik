@@ -10,6 +10,7 @@ import {
   Minus,
   MousePointer2,
   PenLine,
+  Pencil,
   Redo2,
   Route,
   Square,
@@ -25,6 +26,7 @@ import { addToken } from "@/lib/collab/actions";
 import { PALETTE } from "@/lib/engine/factory";
 import type { TeamSide } from "@/lib/engine/types";
 import { getSession } from "@/lib/editor/session";
+import { cancelRoute } from "@/lib/editor/phase-routing";
 import { selectTokens, useEditor, type Tool } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 import { redo, undo } from "./useShortcuts";
@@ -32,6 +34,7 @@ import { redo, undo } from "./useShortcuts";
 const TOOLS: { id: Tool; label: string; key: string; icon: React.ElementType; edit?: boolean }[] = [
   { id: "select", label: "Select and move", key: "V", icon: MousePointer2 },
   { id: "pan", label: "Pan", key: "H", icon: Hand },
+  { id: "route", label: "Draw timed route", key: "G", icon: Route, edit: true },
   { id: "arrow", label: "Arrow", key: "A", icon: ArrowUpRight, edit: true },
   { id: "line", label: "Line", key: "L", icon: Minus, edit: true },
   { id: "zone", label: "Zone", key: "Z", icon: Square, edit: true },
@@ -90,7 +93,10 @@ export function Toolbar({ readOnly }: { readOnly: boolean }) {
           title={`${t.label} (${t.key})`}
           aria-label={t.label}
           aria-pressed={ui.tool === t.id}
-          onClick={() => useEditor.setState({ tool: t.id })}
+          onClick={() => {
+            if (ui.tool === "route" && t.id !== "route") cancelRoute();
+            useEditor.setState({ tool: t.id });
+          }}
         >
           <t.icon size={17} />
         </Button>
@@ -167,7 +173,7 @@ export function Toolbar({ readOnly }: { readOnly: boolean }) {
           aria-pressed={ui.editPaths}
           onClick={() => useEditor.setState({ editPaths: !ui.editPaths })}
         >
-          <Route size={17} />
+          <Pencil size={17} />
         </Button>
       )}
       {!readOnly && (

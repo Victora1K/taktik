@@ -82,10 +82,13 @@ export function Editor({ tactic, me, members }: { tactic: LoadedTactic; me: Prof
       raf = 0;
       const st = docToState(doc);
       const layers = Object.values(st.layers).sort((a, b) => a.order - b.order);
-      const { activeLayerId, selectedTokens, selectedAnnotations } = useEditor.getState();
+      const { activeLayerId, activePhaseId, routeDraft, selectedTokens, selectedAnnotations } =
+        useEditor.getState();
       useEditor.setState({
         state: st,
         activeLayerId: activeLayerId && st.layers[activeLayerId] ? activeLayerId : (layers[0]?.id ?? null),
+        activePhaseId: activePhaseId && st.phases[activePhaseId] ? activePhaseId : null,
+        routeDraft: routeDraft && st.tokens[routeDraft.tokenId] ? routeDraft : null,
         selectedTokens: selectedTokens.filter((id) => st.tokens[id]),
         selectedAnnotations: selectedAnnotations.filter((id) => st.annotations[id]),
       });

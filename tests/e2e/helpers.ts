@@ -39,6 +39,10 @@ export function tokenClient(page: Page, id: string): Promise<{ x: number; y: num
   }, id);
 }
 
+export function fieldClient(page: Page, x: number, y: number): Promise<{ x: number; y: number }> {
+  return page.evaluate(([x, y]) => (window as any).__taktikBoard.toClient(x, y), [x, y]);
+}
+
 /** Drag a token across the canvas in small timed steps, so a running recording samples the motion. */
 export async function dragToken(page: Page, id: string, dx: number, dy: number, steps = 20, stepMs = 40) {
   const start = await tokenClient(page, id);

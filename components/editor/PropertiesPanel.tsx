@@ -7,6 +7,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import {
   clearMotion,
+  clearPhaseRoutes,
   deleteAnnotations,
   deleteTokens,
   duplicateTokens,
@@ -17,8 +18,10 @@ import {
 } from "@/lib/collab/actions";
 import type { Member } from "@/lib/data";
 import { PALETTE, TEAM_COLORS } from "@/lib/engine/factory";
+import { phaseRouteCount } from "@/lib/engine/phases";
 import type { Annotation, Easing, TeamSide, Token, TokenShape } from "@/lib/engine/types";
 import { getSession } from "@/lib/editor/session";
+import { cancelRoute, finishRoute } from "@/lib/editor/phase-routing";
 import { clearSelection, selectTokens, useEditor, usePlayback } from "@/lib/editor/store";
 import { cn, formatTime } from "@/lib/utils";
 
@@ -69,8 +72,24 @@ function TokenProps({
   const session = getSession()!;
   const ids = tokens.map((t) => t.id);
   const single = tokens.length === 1 ? tokens[0] : null;
-  const allTracks = useEditor((s) => s.state.tracks);
+  const route = useEditor(
+    useShallow((s) => ({
+      allTracks: s.state.tracks,
+      phases: s.state.phases,
+      activePhaseId: s.activePhaseId,
+      activeLayerId: s.activeLayerId,
+      routeDraft: s.routeDraft,
+    })),
+  );
+  const allTracks = route.allTracks;
   const tracks = Object.values(allTracks).filter((t) => ids.includes(t.tokenId));
+  const activePhase = route.activePhaseId ? route.phases[route.activePhaseId] : null;
+  const phaseTracks = activePhase
+    ? tracks.filter(
+        (track) =>
+          track.phaseId === activePhase.id && (!route.activeLayerId || track.layerId === route.activeLayerId),
+      )
+    : [];
   const easing = common(tracks.map((t) => t.easing));
   const patch = (p: Partial<Token>) => updateTokens(session.doc, ids, p);
   const color = common(tokens.map((t) => t.color));
@@ -297,6 +316,63 @@ function TokenProps({
           </p>
         )}
       </div>
+
+      {activePhase && (
+        <div className="space-y-2 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-brand-200">
+              {activePhase.name} · {(activePhase.durationMs / 1000).toFixed(1)}s
+            </span>
+            <span className="text-xs text-slate-500">
+              {phaseRouteCount({ tracks: allTracks }, activePhase.id)} routed
+            </span>
+          </div>
+          <p className="text-xs text-slate-400">
+            Select one player, choose Draw timed route, then click waypoints. All routes in this phase play
+            together.
+          </p>
+          {!readOnly && single && (
+            <Button
+              size="sm"
+              variant="primary"
+              className="w-full justify-center"
+              onClick={() => {
+                cancelRoute();
+                useEditor.setState({ tool: "route" });
+              }}
+            >
+              Draw timed route
+            </Button>
+          )}
+          {route.routeDraft && (
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="primary"
+                className="flex-1 justify-center"
+                onClick={() => finishRoute()}
+              >
+                Finish route
+              </Button>
+              <Button size="sm" variant="ghost" className="flex-1 justify-center" onClick={cancelRoute}>
+                Cancel
+              </Button>
+            </div>
+          )}
+          {!readOnly && phaseTracks.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full justify-center"
+              onClick={() =>
+                clearPhaseRoutes(session.doc, activePhase.id, ids, route.activeLayerId ?? undefined)
+              }
+            >
+              <Eraser size={14} /> Clear route in this phase
+            </Button>
+          )}
+        </div>
+      )}
 
       {tokens.length > 1 && !readOnly && (
         <Button

@@ -1,7 +1,7 @@
 import * as Y from "yjs";
 import { DEFAULT_DURATION_MS, type TacticState } from "@/lib/engine/types";
 
-export const COLLECTIONS = ["tokens", "layers", "tracks", "annotations", "groups"] as const;
+export const COLLECTIONS = ["tokens", "layers", "tracks", "phases", "annotations", "groups"] as const;
 export type Collection = (typeof COLLECTIONS)[number];
 
 /** Transaction origin for edits made by this client; the undo manager only tracks these. */
@@ -26,6 +26,7 @@ export function docToState(doc: Y.Doc): TacticState {
     tokens: collection(doc, "tokens").toJSON(),
     layers: collection(doc, "layers").toJSON(),
     tracks: collection(doc, "tracks").toJSON(),
+    phases: collection(doc, "phases").toJSON(),
     annotations: collection(doc, "annotations").toJSON(),
     groups: collection(doc, "groups").toJSON(),
   } as TacticState;

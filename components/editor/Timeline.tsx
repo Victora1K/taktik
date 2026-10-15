@@ -1,13 +1,15 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Pause, Play, Repeat, SkipBack, Square } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, Plus, Repeat, SkipBack, Square } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
-import { setMeta, shiftTrack, trimTrackRange } from "@/lib/collab/actions";
+import { addPhase, setMeta, shiftTrack, trimTrackRange, updatePhaseDuration } from "@/lib/collab/actions";
+import { orderedPhases, phaseBounds, phaseRouteCount } from "@/lib/engine/phases";
 import { contentEnd, trackEnd, trackStart } from "@/lib/engine/tracks";
 import { useComments } from "@/lib/editor/comments";
 import { pause, play, seek, step } from "@/lib/editor/clock";
+import { cancelRoute } from "@/lib/editor/phase-routing";
 import { startRecording, stopRecording } from "@/lib/editor/recording";
 import { getSession } from "@/lib/editor/session";
 import { selectTokens, useEditor, usePlayback } from "@/lib/editor/store";
@@ -31,10 +33,13 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
       selectedTokens: s.selectedTokens,
       overdub: s.overdub,
       followClientId: s.followClientId,
+      activePhaseId: s.activePhaseId,
     })),
   );
   const comments = useComments((s) => s.comments);
   const duration = ed.state.meta.durationMs;
+  const phases = useMemo(() => orderedPhases(ed.state.phases), [ed.state.phases]);
+  const activePhase = ed.activePhaseId ? ed.state.phases[ed.activePhaseId] : null;
   const scrubRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ trackId: string; mode: DragMode; startX: number; dt: number } | null>(
     null,
@@ -69,6 +74,7 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
 
   function startDrag(e: React.PointerEvent, trackId: string, mode: DragMode) {
     if (readOnly) return;
+    if (ed.state.tracks[trackId]?.phaseId) return;
     e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDrag({ trackId, mode, startX: e.clientX, dt: 0 });
@@ -101,8 +107,77 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
   const minDuration = Math.max(1000, Math.ceil(contentEnd(ed.state) / 1000) * 1000);
   const following = ed.followClientId != null;
 
+  function selectPhase(id: string) {
+    const bounds = phaseBounds(ed.state.phases, id);
+    if (!bounds) return;
+    cancelRoute();
+    pause();
+    seek(bounds.start);
+    useEditor.setState({ activePhaseId: id });
+  }
+
+  function appendPhase() {
+    const session = getSession();
+    if (!session) return;
+    cancelRoute();
+    const phase = addPhase(session.doc);
+    useEditor.setState({ activePhaseId: phase.id });
+    seek(phases.reduce((sum, item) => sum + item.durationMs, 0));
+  }
+
   return (
     <section className="shrink-0 border-t border-ink-800 bg-ink-900 px-3 pb-2 pt-1.5" aria-label="Timeline">
+      {!readOnly && (
+        <div className="scrollbar-thin mb-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <span className="mr-1 shrink-0 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Phases
+          </span>
+          {phases.map((phase) => {
+            const bounds = phaseBounds(ed.state.phases, phase.id)!;
+            const active = phase.id === ed.activePhaseId;
+            return (
+              <button
+                key={phase.id}
+                type="button"
+                onClick={() => selectPhase(phase.id)}
+                className={cn(
+                  "shrink-0 rounded-md border px-2 py-1 text-xs",
+                  active
+                    ? "border-brand-400 bg-brand-500/15 text-brand-200"
+                    : "border-ink-700 text-slate-400 hover:text-white",
+                )}
+                aria-pressed={active}
+                title={`${formatTime(bounds.start)}–${formatTime(bounds.end)}; ${phaseRouteCount(ed.state, phase.id)} routed players`}
+              >
+                {phase.name} · {(phase.durationMs / 1000).toFixed(1)}s
+              </button>
+            );
+          })}
+          <Button size="sm" variant="ghost" onClick={appendPhase} disabled={following}>
+            <Plus size={14} /> {phases.length ? "Next phase" : "Add phase"}
+          </Button>
+          {activePhase && (
+            <label className="ml-auto flex shrink-0 items-center gap-1 text-xs text-slate-400">
+              Duration
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                value={activePhase.durationMs / 1000}
+                onChange={(event) => {
+                  const session = getSession();
+                  if (session && Number.isFinite(Number(event.target.value)))
+                    updatePhaseDuration(session.doc, activePhase.id, Number(event.target.value) * 1000);
+                }}
+                className="h-7 w-14 rounded border border-ink-700 bg-ink-900 px-1 text-slate-200"
+                aria-label="Active phase duration in seconds"
+              />
+              s
+            </label>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
           size="icon"
@@ -145,7 +220,7 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
         >
           <ChevronRight size={16} />
         </Button>
-        {!readOnly && (
+        {!readOnly && phases.length === 0 && (
           <Button
             size="sm"
             variant={pb.recording ? "danger" : "outline"}
@@ -252,6 +327,16 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
           {Array.from({ length: Math.floor(duration / 1000) + 1 }, (_, i) => (
             <span key={i} className="absolute top-0 h-2 w-px bg-ink-700" style={{ left: pct(i * 1000) }} />
           ))}
+          {phases.slice(1).map((phase) => {
+            const bounds = phaseBounds(ed.state.phases, phase.id)!;
+            return (
+              <span
+                key={phase.id}
+                className="pointer-events-none absolute inset-y-0 w-px bg-brand-300/60"
+                style={{ left: pct(bounds.start) }}
+              />
+            );
+          })}
           {comments
             .filter((c) => c.anchorMs != null && !c.parentId)
             .map((c) => (
@@ -308,7 +393,7 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
                 </button>
                 <div className="relative h-4 rounded bg-ink-800/60">
                   <div
-                    className={cn("absolute top-0 h-4 rounded", readOnly ? "" : "cursor-grab")}
+                    className={cn("absolute top-0 h-4 rounded", readOnly || tr.phaseId ? "" : "cursor-grab")}
                     style={{
                       left: pct(s),
                       width: `calc(${pct(e - s)} + 2px)`,
@@ -323,7 +408,7 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
                     onPointerUp={endDrag}
                     title={`${formatTime(s)} - ${formatTime(e)} (${layer?.name ?? ""}). Drag to shift, drag the edges to trim.`}
                   >
-                    {!readOnly && (
+                    {!readOnly && !tr.phaseId && (
                       <>
                         <span
                           className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize rounded-l bg-black/30"

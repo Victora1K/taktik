@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
-import { addToken, updateTokens } from "@/lib/collab/actions";
+import { addPhase, addToken, commitPhaseRoute, updateTokens } from "@/lib/collab/actions";
 import { createDoc, docToState } from "@/lib/collab/doc";
 import { YjsProvider } from "@/lib/collab/provider";
 import { MemoryHub } from "@/lib/collab/transport";
@@ -59,6 +59,43 @@ describe("YjsProvider", () => {
       const ids = Object.keys(docToState(d).tokens);
       expect(ids).toContain(ta.id);
       expect(ids).toContain(tb.id);
+    }
+  });
+
+  it("syncs phases and simultaneous routes authored by different peers", async () => {
+    const state = createInitialState({ sport: "soccer", homeCount: 2, awayCount: 0, includeBall: false });
+    const base = createDoc(state);
+    const phase = addPhase(base, 3000);
+    const docA = new Y.Doc();
+    const docB = new Y.Doc();
+    const initial = Y.encodeStateAsUpdate(base);
+    Y.applyUpdate(docA, initial);
+    Y.applyUpdate(docB, initial);
+    const hub = new MemoryHub();
+    const a = peer(hub, docA);
+    const b = peer(hub, docB);
+    await sleep(20);
+    const [one, two] = Object.keys(state.tokens);
+    const layerId = Object.keys(state.layers)[0];
+    commitPhaseRoute(a.doc, {
+      phaseId: phase.id,
+      tokenId: one,
+      layerId,
+      points: [state.tokens[one], { x: state.tokens[one].x + 5, y: state.tokens[one].y }],
+    });
+    commitPhaseRoute(b.doc, {
+      phaseId: phase.id,
+      tokenId: two,
+      layerId,
+      points: [state.tokens[two], { x: state.tokens[two].x, y: state.tokens[two].y + 5 }],
+    });
+    await sleep(100);
+    for (const doc of [a.doc, b.doc]) {
+      const synced = docToState(doc);
+      expect(synced.phases[phase.id]?.durationMs).toBe(3000);
+      expect(new Set(Object.values(synced.tracks).map((track) => track.tokenId))).toEqual(
+        new Set([one, two]),
+      );
     }
   });
 

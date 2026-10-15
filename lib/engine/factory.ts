@@ -82,6 +82,7 @@ export function createInitialState(opts: NewTacticOptions): TacticState {
     tokens,
     layers: { [layer.id]: layer },
     tracks: {},
+    phases: {},
     annotations: {},
     groups: {},
   };

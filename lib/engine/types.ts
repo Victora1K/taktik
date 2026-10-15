@@ -32,6 +32,8 @@ export interface Track {
   id: string;
   tokenId: string;
   layerId: string;
+  /** Present when this segment was authored through a timed phase. */
+  phaseId?: string;
   keyframes: Keyframe[];
   easing: Easing;
   createdBy?: string;
@@ -73,6 +75,13 @@ export interface TokenGroup {
   tokenIds: string[];
 }
 
+export interface Phase {
+  id: string;
+  name: string;
+  durationMs: number;
+  order: number;
+}
+
 export interface TacticMetaDoc {
   sport: SportId;
   title: string;
@@ -85,6 +94,7 @@ export interface TacticState {
   tokens: Record<string, Token>;
   layers: Record<string, Layer>;
   tracks: Record<string, Track>;
+  phases: Record<string, Phase>;
   annotations: Record<string, Annotation>;
   groups: Record<string, TokenGroup>;
 }

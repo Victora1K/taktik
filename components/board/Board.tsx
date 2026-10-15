@@ -5,6 +5,7 @@ import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Arrow, Circle, Group, Layer, Line, Rect, Stage, Text } from "react-konva";
 import { useShallow } from "zustand/react/shallow";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import {
   addAnnotation,
@@ -14,10 +15,12 @@ import {
   translateTokens,
 } from "@/lib/collab/actions";
 import { samplePath, type Point } from "@/lib/engine/interpolate";
+import { phaseBounds, routeKeyframes } from "@/lib/engine/phases";
 import { allPositionsAt, annotationVisibleAt, tracksByToken } from "@/lib/engine/tracks";
 import type { Annotation, AnnotationKind, Track } from "@/lib/engine/types";
 import { PIN_WINDOW_MS, useComments } from "@/lib/editor/comments";
 import { seek } from "@/lib/editor/clock";
+import { finishRoute } from "@/lib/editor/phase-routing";
 import { grab, release } from "@/lib/editor/recording";
 import { getSession, setPresence } from "@/lib/editor/session";
 import {
@@ -87,6 +90,9 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
       focusedCommentId: s.focusedCommentId,
       drawColor: s.drawColor,
       drawDashed: s.drawDashed,
+      activePhaseId: s.activePhaseId,
+      activeLayerId: s.activeLayerId,
+      routeDraft: s.routeDraft,
     })),
   );
   const comments = useComments((s) => s.comments);
@@ -251,6 +257,39 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
 
     if (ui.tool === "pin") {
       useEditor.setState({ pendingPin: p, tool: "select", rightTab: "comments" });
+      return;
+    }
+
+    if (ui.tool === "route") {
+      const bounds = ui.activePhaseId ? phaseBounds(state.phases, ui.activePhaseId) : null;
+      if (!bounds) {
+        toast("Add or select a phase before drawing a timed route");
+        return;
+      }
+      const hitToken = target.findAncestor(".token", true)?.getAttr("tokenId") as string | undefined;
+      if (!ui.routeDraft && hitToken) {
+        selectTokens([hitToken]);
+        seek(bounds.start);
+        return;
+      }
+      const tokenId = ui.routeDraft?.tokenId ?? ui.selectedTokens[0];
+      if (!tokenId || (!ui.routeDraft && ui.selectedTokens.length !== 1)) {
+        toast("Select one player, then click the route points");
+        return;
+      }
+      const lockedBy = locks.get(tokenId);
+      if (lockedBy) {
+        toast(`${lockedBy.user?.name ?? "A teammate"} is editing this player`);
+        return;
+      }
+      const start = allPositionsAt(state, bounds.start, byToken)[tokenId];
+      if (!start) return;
+      const points = ui.routeDraft?.tokenId === tokenId ? [...ui.routeDraft.points] : [start];
+      const previous = points[points.length - 1];
+      if (Math.hypot(p.x - previous.x, p.y - previous.y) > r * 0.15) points.push(clampPos(p));
+      useEditor.setState({ routeDraft: { tokenId, points } });
+      setPresence({ locked: [tokenId] });
+      seek(bounds.start);
       return;
     }
 
@@ -523,6 +562,10 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
 
   function onDblClick(e: KonvaEventObject<MouseEvent | TouchEvent>) {
     if (readOnly) return;
+    if (useEditor.getState().routeDraft) {
+      finishRoute();
+      return;
+    }
     const kfNode = e.target.findAncestor(".kf", true);
     if (kfNode) {
       deleteKeyframe(session.doc, kfNode.getAttr("trackId"), kfNode.getAttr("index"));
@@ -572,7 +615,7 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
   const cursor =
     ui.tool === "pan"
       ? "grab"
-      : DRAW_TOOLS.has(ui.tool) || ui.tool === "pin" || ui.tool === "text"
+      : DRAW_TOOLS.has(ui.tool) || ui.tool === "route" || ui.tool === "pin" || ui.tool === "text"
         ? "crosshair"
         : "default";
 
@@ -610,6 +653,14 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
           </Layer>
           <Layer>
             <Group x={offX} y={offY} scaleX={scale} scaleY={scale}>
+              <Rect
+                x={0}
+                y={0}
+                width={sport.width}
+                height={sport.height}
+                fill="rgba(0,0,0,0)"
+                name="field-hit-area"
+              />
               {Object.values(state.annotations)
                 .filter((a) => annotationVisibleAt(a, time) || ui.selectedAnnotations.includes(a.id))
                 .filter(
@@ -632,6 +683,30 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
               )}
 
               <Group listening={false}>
+                {ui.routeDraft &&
+                  ui.activePhaseId &&
+                  (() => {
+                    const bounds = phaseBounds(state.phases, ui.activePhaseId);
+                    const token = state.tokens[ui.routeDraft.tokenId];
+                    if (!bounds || !token || ui.routeDraft.points.length < 2) return null;
+                    return (
+                      <Arrow
+                        points={samplePath(
+                          routeKeyframes(ui.routeDraft.points, bounds.start, bounds.end),
+                          "smooth",
+                        )}
+                        stroke={token.team === "ball" ? "#f8fafc" : token.color}
+                        fill={token.team === "ball" ? "#f8fafc" : token.color}
+                        strokeWidth={r * 0.2}
+                        pointerLength={r * 0.7}
+                        pointerWidth={r * 0.7}
+                        dash={[r * 0.5, r * 0.28]}
+                        opacity={0.9}
+                        lineCap="round"
+                        lineJoin="round"
+                      />
+                    );
+                  })()}
                 {trails.map(({ track, color, active }) => {
                   const tr = withDraftKf(track);
                   return (
@@ -772,6 +847,17 @@ export default function Board({ readOnly }: { readOnly: boolean }) {
         <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
           <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC - drag players to record their
           runs
+        </div>
+      )}
+      {ui.routeDraft && (
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-lg border border-brand-500/50 bg-ink-950/95 p-2 shadow-xl">
+          <span className="text-xs text-slate-300">
+            {Math.max(0, ui.routeDraft.points.length - 1)} route point
+            {ui.routeDraft.points.length === 2 ? "" : "s"}
+          </span>
+          <Button size="sm" variant="primary" onClick={() => finishRoute()}>
+            Done route
+          </Button>
         </div>
       )}
     </div>

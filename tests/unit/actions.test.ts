@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
-import { addToken, commitRecording, deleteTokens, saveGroup, translateTokens } from "@/lib/collab/actions";
+import {
+  addPhase,
+  addToken,
+  commitPhaseRoute,
+  commitRecording,
+  deleteTokens,
+  saveGroup,
+  translateTokens,
+  updatePhaseDuration,
+} from "@/lib/collab/actions";
 import {
   applyState,
   createDoc,
@@ -56,6 +65,70 @@ describe("doc state", () => {
 });
 
 describe("actions", () => {
+  it("creates chained phase routes and rescales them when a duration changes", () => {
+    const { doc, tokenId, layerId } = setup();
+    const first = addPhase(doc, 3000);
+    const second = addPhase(doc, 2000);
+    commitPhaseRoute(doc, {
+      phaseId: first.id,
+      tokenId,
+      layerId,
+      points: [
+        { x: 0, y: 0 },
+        { x: 6, y: 0 },
+      ],
+    });
+    commitPhaseRoute(doc, {
+      phaseId: second.id,
+      tokenId,
+      layerId,
+      points: [
+        { x: 6, y: 0 },
+        { x: 6, y: 4 },
+      ],
+    });
+    let state = docToState(doc);
+    const byPhase = Object.fromEntries(Object.values(state.tracks).map((track) => [track.phaseId, track]));
+    expect(byPhase[first.id].keyframes.map((point: { t: number }) => point.t)).toEqual([0, 3000]);
+    expect(byPhase[second.id].keyframes.map((point: { t: number }) => point.t)).toEqual([3000, 5000]);
+    expect(state.meta.durationMs).toBe(5000);
+
+    updatePhaseDuration(doc, first.id, 5000);
+    state = docToState(doc);
+    const resized = Object.fromEntries(Object.values(state.tracks).map((track) => [track.phaseId, track]));
+    expect(resized[first.id].keyframes.map((point: { t: number }) => point.t)).toEqual([0, 5000]);
+    expect(resized[second.id].keyframes.map((point: { t: number }) => point.t)).toEqual([5000, 7000]);
+    expect(state.meta.durationMs).toBe(7000);
+  });
+
+  it("redrawing replaces only the matching player, phase and layer", () => {
+    const { doc, tokenId, layerId } = setup();
+    const phase = addPhase(doc);
+    const first = commitPhaseRoute(doc, {
+      phaseId: phase.id,
+      tokenId,
+      layerId,
+      points: [
+        { x: 0, y: 0 },
+        { x: 2, y: 0 },
+      ],
+    });
+    const replacement = commitPhaseRoute(doc, {
+      phaseId: phase.id,
+      tokenId,
+      layerId,
+      points: [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+    });
+    const tracks = Object.values(docToState(doc).tracks);
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0].id).toBe(replacement?.id);
+    expect(tracks[0].id).not.toBe(first?.id);
+    expect(tracks[0].keyframes.at(-1)?.x).toBe(4);
+  });
+
   it("translates a token's start position and its keyframes", () => {
     const { doc, tokenId, layerId } = setup();
     commitRecording(

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { deleteAnnotations, deleteTokens, duplicateTokens, translateTokens } from "@/lib/collab/actions";
 import { step, togglePlay } from "@/lib/editor/clock";
+import { cancelRoute, finishRoute } from "@/lib/editor/phase-routing";
 import { cancelRecording, isRecording, stopRecording, toggleRecording } from "@/lib/editor/recording";
 import { getSession } from "@/lib/editor/session";
 import { clearSelection, selectTokens, useEditor, usePlayback, type Tool } from "@/lib/editor/store";
@@ -16,6 +17,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   t: "text",
   f: "freehand",
   c: "pin",
+  g: "route",
 };
 
 export function undo() {
@@ -48,8 +50,17 @@ export function useShortcuts(readOnly: boolean, enabled: boolean) {
       }
       if (key === "escape") {
         if (isRecording()) cancelRecording();
+        if (ed.routeDraft) {
+          cancelRoute();
+          return;
+        }
         clearSelection();
         useEditor.setState({ tool: "select", pendingPin: null });
+        return;
+      }
+      if (key === "enter" && ed.routeDraft) {
+        e.preventDefault();
+        finishRoute();
         return;
       }
       if (key === "," || key === ".") {
@@ -88,7 +99,12 @@ export function useShortcuts(readOnly: boolean, enabled: boolean) {
         clearSelection();
         return;
       }
-      if (key.startsWith("arrow") && ed.selectedTokens.length && !usePlayback.getState().recording) {
+      if (
+        key.startsWith("arrow") &&
+        ed.selectedTokens.length &&
+        !ed.routeDraft &&
+        !usePlayback.getState().recording
+      ) {
         e.preventDefault();
         const d = e.shiftKey ? 2 : 0.5;
         const dx = key === "arrowleft" ? -d : key === "arrowright" ? d : 0;

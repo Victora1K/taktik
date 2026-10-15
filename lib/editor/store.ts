@@ -3,7 +3,7 @@ import type { OverdubMode } from "@/lib/collab/actions";
 import type { Point } from "@/lib/engine/interpolate";
 import { DEFAULT_DURATION_MS, type TacticState } from "@/lib/engine/types";
 
-export type Tool = "select" | "pan" | "arrow" | "line" | "zone" | "text" | "freehand" | "pin";
+export type Tool = "select" | "pan" | "route" | "arrow" | "line" | "zone" | "text" | "freehand" | "pin";
 export type RightTab = "props" | "tokens" | "layers" | "comments";
 
 export interface PresenterState {
@@ -31,6 +31,7 @@ export const emptyState = (): TacticState => ({
   tokens: {},
   layers: {},
   tracks: {},
+  phases: {},
   annotations: {},
   groups: {},
 });
@@ -41,6 +42,8 @@ interface EditorStore {
   selectedTokens: string[];
   selectedAnnotations: string[];
   activeLayerId: string | null;
+  activePhaseId: string | null;
+  routeDraft: { tokenId: string; points: Point[] } | null;
   overdub: OverdubMode;
   showTrails: boolean;
   editPaths: boolean;
@@ -65,6 +68,8 @@ const initial = (): EditorStore => ({
   selectedTokens: [],
   selectedAnnotations: [],
   activeLayerId: null,
+  activePhaseId: null,
+  routeDraft: null,
   overdub: "replace",
   showTrails: true,
   editPaths: false,

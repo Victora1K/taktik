@@ -1,5 +1,5 @@
 import { devices, expect, test } from "@playwright/test";
-import { createTactic, expectEventually, tokenClient, tokenId } from "./helpers";
+import { createTactic, expectEventually, fieldClient, getState, tokenClient, tokenId } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -25,5 +25,28 @@ test("tap selects a player", async ({ page }) => {
   await expectEventually(
     () => page.evaluate(() => (window as any).__taktik.editor.getState().selectedTokens as string[]),
     (sel) => sel.length === 1 && sel[0] === id,
+  );
+});
+
+test("finishes a timed route with the mobile completion control", async ({ page }) => {
+  await createTactic(page, "soccer");
+  await page.getByRole("button", { name: "Add phase" }).click();
+  const id = await tokenId(page, "home", "1");
+  const start = await tokenClient(page, id);
+  const state = await getState(page);
+  const end = await fieldClient(page, state.tokens[id].x + 5, state.tokens[id].y + 3);
+  await page.getByLabel("Draw timed route").click();
+  await expect(page.getByLabel("Draw timed route")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("board")).toHaveCSS("cursor", "crosshair");
+  await page.touchscreen.tap(start.x, start.y);
+  await expectEventually(
+    () => page.evaluate(() => (window as any).__taktik.editor.getState().selectedTokens as string[]),
+    (selected) => selected[0] === id,
+  );
+  await page.touchscreen.tap(end.x, end.y);
+  await page.getByRole("button", { name: "Done route" }).click();
+  await expectEventually(
+    async () => Object.values((await getState(page)).tracks).filter((track: any) => track.phaseId).length,
+    (count) => count === 1,
   );
 });
