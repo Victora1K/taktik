@@ -116,3 +116,30 @@ test("two signed-in teammates collaborate through Supabase", async ({ browser })
   await c.goto(tacticPath);
   await expect(c.getByTestId("board")).toHaveCount(0, { timeout: 10_000 });
 });
+
+test("a signed-in invitee can accept a team invitation from the notification bell", async ({ browser }) => {
+  const owner = await createUser("Coach");
+  const guest = await createUser("Guest");
+  const { data: team, error } = await admin
+    .from("teams")
+    .insert({ name: "Invite FC", created_by: owner.id })
+    .select()
+    .single();
+  if (error) throw error;
+  await admin.from("team_members").insert({ team_id: team.id, user_id: owner.id, role: "owner" });
+  const { error: inviteError } = await admin.from("team_invites").insert({
+    team_id: team.id,
+    email: guest.email,
+    role: "member",
+    created_by: owner.id,
+  });
+  if (inviteError) throw inviteError;
+
+  const page = await signIn(browser, guest.email, "/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Draw the play");
+  await page.getByLabel(/Notifications/).click();
+  await expect(page.getByText("Invite FC")).toBeVisible();
+  await page.getByRole("button", { name: "Accept" }).click();
+  await page.waitForURL(new RegExp(`/teams/${team.id}$`));
+  await expect(page.getByRole("heading", { name: "Invite FC" })).toBeVisible();
+});

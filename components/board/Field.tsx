@@ -8,7 +8,7 @@ import type { SportConfig } from "@/lib/sports";
 /** Static field drawing in meters. Not interactive, so clicks fall through to the stage. */
 export const Field = memo(function Field({ sport }: { sport: SportConfig }) {
   const { width: W, height: H, margin: M, lineColor, lineWidth } = sport;
-  const stripes = sport.id === "soccer" ? 12 : 0;
+  const stripes = sport.id === "soccer" || sport.id === "football" ? 12 : 0;
   return (
     <Group listening={false}>
       <Rect x={-M} y={-M} width={W + 2 * M} height={H + 2 * M} fill={sport.surroundColor} />

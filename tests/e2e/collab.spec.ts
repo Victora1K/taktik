@@ -51,8 +51,13 @@ test("two editors see each other's edits, cursors and comments live", async ({ c
 
 test("changes persist after reload", async ({ page }) => {
   const url = await createTactic(page, "volleyball");
+  const before = Object.keys((await getState(page)).tokens).length;
   await page.getByRole("button", { name: "Add ball" }).click();
-  const expected = Object.keys((await getState(page)).tokens).length;
+  await expectEventually(
+    async () => Object.keys((await getState(page)).tokens).length,
+    (count) => count === before + 1,
+  );
+  const expected = before + 1;
   await expect(page.getByTestId("save-status")).toContainText("Saved", { timeout: 10_000 });
   await page.goto(url);
   await waitForBoard(page);

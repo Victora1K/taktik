@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { createTactic, getState, tokenClient, tokenId } from "./helpers";
+import { createTactic, expectEventually, getState, tokenClient, tokenId } from "./helpers";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -56,6 +56,10 @@ test("keyboard: arrows nudge the selection and Space activates focused buttons",
   const before = (await getState(page)).tokens[id];
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Shift+ArrowDown");
+  await expectEventually(
+    async () => (await getState(page)).tokens[id].y,
+    (y) => Math.abs(y - (before.y + 2)) < 0.001,
+  );
   const after = (await getState(page)).tokens[id];
   expect(after.x).toBeCloseTo(before.x + 0.5, 3);
   expect(after.y).toBeCloseTo(before.y + 2, 3);

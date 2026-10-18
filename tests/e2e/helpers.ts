@@ -2,7 +2,10 @@ import { expect, type Page } from "@playwright/test";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export async function createTactic(page: Page, sport: "soccer" | "basketball" | "volleyball") {
+export async function createTactic(
+  page: Page,
+  sport: "soccer" | "basketball" | "volleyball" | "football" | "baseball" | "tennis",
+) {
   await page.goto("/teams");
   await page.waitForURL(/\/teams\/[^/]+$/);
   await page.getByTestId("new-tactic").click();

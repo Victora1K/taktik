@@ -3,6 +3,7 @@
 import posthog from "posthog-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { getDataStore, type DataStore, type Profile } from "@/lib/data";
+import { getBrowserSupabase } from "@/lib/supabase/client";
 
 interface SessionValue {
   data: DataStore;
@@ -33,7 +34,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    if (data.mode !== "supabase") return;
+    const {
+      data: { subscription },
+    } = getBrowserSupabase().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setMe(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") {
+        // Defer so this listener does not deadlock on another auth request.
+        setTimeout(() => void refresh(), 0);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [data.mode, refresh]);
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;

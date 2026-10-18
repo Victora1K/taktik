@@ -9,7 +9,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { toastError } from "@/components/ui/toast";
 import { encodeState } from "@/lib/collab/doc";
 import { createInitialState } from "@/lib/engine/factory";
-import { getSport, SPORT_LIST, type SportId } from "@/lib/sports";
+import { formationsFor, getSport, SPORT_LIST, type SportId } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 import { SportPreview } from "./SportPreview";
 
@@ -31,7 +31,8 @@ export function NewTacticDialog({
   const [title, setTitle] = useState("");
   const [home, setHome] = useState(sport.defaultPerSide);
   const [away, setAway] = useState(sport.defaultPerSide);
-  const [formation, setFormation] = useState(sport.formations[0].id);
+  const [homeFormation, setHomeFormation] = useState(sport.formations[0].id);
+  const [awayFormation, setAwayFormation] = useState(sport.formations[0].id);
   const [ball, setBall] = useState(true);
   const [folder, setFolder] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,7 +41,9 @@ export function NewTacticDialog({
     const s = getSport(sportId);
     setHome(s.defaultPerSide);
     setAway(s.defaultPerSide);
-    setFormation(s.formations[0].id);
+    const initial = formationsFor(s, s.defaultPerSide)[0]?.id ?? s.formations[0].id;
+    setHomeFormation(initial);
+    setAwayFormation(initial);
   }, [sportId]);
 
   async function create() {
@@ -51,7 +54,8 @@ export function NewTacticDialog({
         title,
         homeCount: home,
         awayCount: away,
-        formationId: formation,
+        formationId: homeShape || undefined,
+        awayFormationId: awayShape || undefined,
         includeBall: ball,
       });
       const meta = await data.createTactic({
@@ -70,14 +74,21 @@ export function NewTacticDialog({
   }
 
   const max = sport.maxPerSide;
-  const formationFits = sport.formations.find((f) => f.id === formation)?.positions.length === home;
+  const homeShapes = formationsFor(sport, home);
+  const awayShapes = formationsFor(sport, away);
+  const homeShape = homeShapes.some((item) => item.id === homeFormation)
+    ? homeFormation
+    : (homeShapes[0]?.id ?? "");
+  const awayShape = awayShapes.some((item) => item.id === awayFormation)
+    ? awayFormation
+    : (awayShapes[0]?.id ?? "");
 
   return (
     <Dialog open={open} onClose={onClose} title="New tactic" className="w-[min(94vw,40rem)]">
       <div className="space-y-5">
         <div>
           <Label>Sport</Label>
-          <div className="grid grid-cols-3 gap-2" role="radiogroup">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup">
             {SPORT_LIST.map((s) => (
               <button
                 key={s.id}
@@ -104,7 +115,16 @@ export function NewTacticDialog({
               id="nt-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={`e.g. ${sportId === "soccer" ? "High press from goal kick" : sportId === "basketball" ? "Horns flare" : "Serve receive rotation 1"}`}
+              placeholder={`e.g. ${
+                {
+                  soccer: "High press from goal kick",
+                  basketball: "Horns flare",
+                  volleyball: "Serve receive rotation 1",
+                  football: "Mesh concept vs cover 2",
+                  baseball: "Hit and run",
+                  tennis: "Serve plus one",
+                }[sportId]
+              }`}
               maxLength={120}
             />
           </div>
@@ -118,7 +138,12 @@ export function NewTacticDialog({
               min={0}
               max={max}
               value={home}
-              onChange={(e) => setHome(Number(e.target.value))}
+              onChange={(e) => {
+                const count = Number(e.target.value);
+                setHome(count);
+                const next = formationsFor(sport, count);
+                if (!next.some((item) => item.id === homeFormation)) setHomeFormation(next[0]?.id ?? "");
+              }}
               className="w-full"
             />
           </div>
@@ -132,24 +157,57 @@ export function NewTacticDialog({
               min={0}
               max={max}
               value={away}
-              onChange={(e) => setAway(Number(e.target.value))}
+              onChange={(e) => {
+                const count = Number(e.target.value);
+                setAway(count);
+                const next = formationsFor(sport, count);
+                if (!next.some((item) => item.id === awayFormation)) setAwayFormation(next[0]?.id ?? "");
+              }}
               className="w-full"
             />
           </div>
           <div>
-            <Label htmlFor="nt-formation">Starting shape</Label>
-            <Select id="nt-formation" value={formation} onChange={(e) => setFormation(e.target.value)}>
-              {sport.formations.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+            <Label htmlFor="nt-home-formation">Your shape</Label>
+            <Select
+              id="nt-home-formation"
+              value={homeShape}
+              onChange={(e) => setHomeFormation(e.target.value)}
+              disabled={!homeShapes.length}
+            >
+              {homeShapes.length ? (
+                homeShapes.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))
+              ) : (
+                <option value="">Even spread</option>
+              )}
             </Select>
-            {!formationFits && (
+            {!homeShapes.length && (
               <p className="mt-1 text-xs text-slate-500">
-                Player count differs from the shape; players are spread evenly instead.
+                No preset for this count; players are spread evenly.
               </p>
             )}
+          </div>
+          <div>
+            <Label htmlFor="nt-away-formation">Opponent shape</Label>
+            <Select
+              id="nt-away-formation"
+              value={awayShape}
+              onChange={(e) => setAwayFormation(e.target.value)}
+              disabled={!awayShapes.length}
+            >
+              {awayShapes.length ? (
+                awayShapes.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))
+              ) : (
+                <option value="">Even spread</option>
+              )}
+            </Select>
           </div>
           <div>
             <Label htmlFor="nt-folder">Folder (optional)</Label>

@@ -141,6 +141,17 @@ export interface Notification {
   readAt: string | null;
 }
 
+export interface PendingInvite {
+  id: string;
+  token: string;
+  teamId: string;
+  teamName: string;
+  role: Role;
+  inviterName: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export interface LoadedTactic {
   meta: TacticMeta;
   docState: Uint8Array | null;
@@ -176,6 +187,8 @@ export interface DataStore {
   deleteInvite(id: string): Promise<void>;
   getInviteInfo(token: string): Promise<InviteInfo | null>;
   acceptInvite(token: string): Promise<string>;
+  listPendingInvites(): Promise<PendingInvite[]>;
+  declineInvite(token: string): Promise<void>;
 
   listTactics(teamId: string): Promise<TacticMeta[]>;
   createTactic(input: {

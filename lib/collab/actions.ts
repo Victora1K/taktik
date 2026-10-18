@@ -2,6 +2,7 @@ import type * as Y from "yjs";
 import { makeLayer, makeToken, newId, nextNumber } from "@/lib/engine/factory";
 import type { Point } from "@/lib/engine/interpolate";
 import { orderedPhases, phaseBounds, phasesDuration, routeKeyframes } from "@/lib/engine/phases";
+import { getSport, sidePositions } from "@/lib/sports";
 import { cutRange, shiftKeyframes, trackEnd, trackStart, trimTrack } from "@/lib/engine/tracks";
 import type {
   Annotation,
@@ -191,6 +192,46 @@ export function translateTokens(doc: Y.Doc, deltas: Record<string, { dx: number;
       if (d && (d.dx || d.dy))
         tracks(doc).set(id, { ...tr, keyframes: shiftKeyframes(tr.keyframes, 0, d.dx, d.dy).map(roundKf) });
     }
+  });
+}
+
+/** Move one side onto a formation and shift every recorded path by the same deltas. */
+export function applySideFormation(doc: Y.Doc, side: "home" | "away", formationId: string) {
+  tx(doc, () => {
+    const meta = metaMap(doc).toJSON() as TacticMetaDoc;
+    const sport = getSport(meta.sport);
+    const formation = sport.formations.find((item) => item.id === formationId);
+    const sideTokens = [...tokens(doc).values()]
+      .filter((token) => token.team === side)
+      .sort(
+        (a, b) =>
+          (Number(a.number) || Number.MAX_SAFE_INTEGER) - (Number(b.number) || Number.MAX_SAFE_INTEGER) ||
+          (a.number ?? "").localeCompare(b.number ?? ""),
+      );
+    if (!formation || formation.positions.length !== sideTokens.length) return;
+    const positions = sidePositions(sport, side, sideTokens.length, formationId);
+    const deltas = Object.fromEntries(
+      sideTokens.map((token, index) => [
+        token.id,
+        { dx: positions[index][0] - token.x, dy: positions[index][1] - token.y },
+      ]),
+    );
+    const ids = Object.keys(deltas).filter((id) => deltas[id].dx || deltas[id].dy);
+    const tmap = tokens(doc);
+    for (const id of ids) {
+      const token = tmap.get(id);
+      if (token)
+        tmap.set(id, { ...token, x: round(token.x + deltas[id].dx), y: round(token.y + deltas[id].dy) });
+    }
+    for (const [id, track] of tracks(doc).entries()) {
+      const delta = deltas[track.tokenId];
+      if (delta && (delta.dx || delta.dy))
+        tracks(doc).set(id, {
+          ...track,
+          keyframes: shiftKeyframes(track.keyframes, 0, delta.dx, delta.dy).map(roundKf),
+        });
+    }
+    metaMap(doc).set(side === "home" ? "homeFormationId" : "awayFormationId", formationId);
   });
 }
 

@@ -48,9 +48,9 @@ export default function LandingPage() {
             Draw the play. <span className="text-brand-400">Animate it.</span> Win it together.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-slate-300">
-            taktiks is a collaborative tactics board for soccer, basketball and volleyball. Pick a sport, set
-            your players and opponents, record their movement, and work through the plan with your whole team
-            in real time.
+            taktiks is a collaborative tactics board for soccer, basketball, volleyball, football, baseball
+            and tennis. Pick a sport, set your players and opponents, record their movement, and work through
+            the plan with your whole team in real time.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link

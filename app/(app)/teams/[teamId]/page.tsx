@@ -82,17 +82,17 @@ export default function TeamLibraryPage({ params }: { params: Promise<{ teamId: 
     <div>
       <TeamNav team={team} />
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-lg bg-ink-900 p-1">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-ink-900 p-1">
           {(["all", ...SPORT_LIST.map((s) => s.id)] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSport(s)}
               className={cn(
-                "rounded-md px-3 py-1 text-sm capitalize",
+                "rounded-md px-3 py-1 text-sm",
                 sport === s ? "bg-ink-700 text-white" : "text-slate-400 hover:text-white",
               )}
             >
-              {s}
+              {s === "all" ? "All" : getSport(s).name}
             </button>
           ))}
         </div>

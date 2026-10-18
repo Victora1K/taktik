@@ -1,4 +1,4 @@
-export type SportId = "soccer" | "basketball" | "volleyball";
+export type SportId = "soccer" | "basketball" | "volleyball" | "football" | "baseball" | "tennis";
 
 export type Marking =
   | { type: "rect"; x: number; y: number; w: number; h: number; fill?: string; stroke?: boolean }
@@ -10,6 +10,8 @@ export type Marking =
 export interface Formation {
   id: string;
   name: string;
+  /** Players this shape is drawn for. Defaults to the number of home positions. */
+  playerCount?: number;
   /** Positions for the home side, which attacks left to right. */
   positions: [number, number][];
   /** Explicit away positions; when omitted the home positions are point-mirrored through the center. */
