@@ -128,6 +128,7 @@ test("undo and redo a deletion", async ({ page }) => {
 test("builds simultaneous timed routes and shifts chained phases when duration changes", async ({ page }) => {
   await createTactic(page, "soccer");
   await page.getByRole("button", { name: "Add phase" }).click();
+  await expect(page.getByTestId("record")).toBeVisible();
   let state = await getState(page);
   const players = (Object.values(state.tokens) as any[])
     .filter((token) => token.team !== "ball")

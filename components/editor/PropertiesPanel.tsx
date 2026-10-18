@@ -329,7 +329,7 @@ function TokenProps({
           </div>
           <p className="text-xs text-slate-400">
             Select one player, choose Draw timed route, then click waypoints. All routes in this phase play
-            together.
+            together. Record still captures freeform runs on the same timeline.
           </p>
           {!readOnly && single && (
             <Button

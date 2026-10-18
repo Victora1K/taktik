@@ -220,12 +220,12 @@ export function Timeline({ readOnly }: { readOnly: boolean }) {
         >
           <ChevronRight size={16} />
         </Button>
-        {!readOnly && phases.length === 0 && (
+        {!readOnly && (
           <Button
             size="sm"
             variant={pb.recording ? "danger" : "outline"}
             onClick={() => (pb.recording ? stopRecording() : startRecording())}
-            title="Record (R): the clip plays while you drag players; their paths are recorded. Press again to stop."
+            title="Record (R): drag players while the clip plays. Timed routes and recordings can share the same play."
             data-testid="record"
             disabled={following}
           >
