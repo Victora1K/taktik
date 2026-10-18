@@ -86,6 +86,8 @@ export interface TacticMetaDoc {
   sport: SportId;
   title: string;
   durationMs: number;
+  homeFormationId?: string;
+  awayFormationId?: string;
 }
 
 /** Plain-JSON view of a tactic document. The live source of truth is a Y.Doc with the same shape. */

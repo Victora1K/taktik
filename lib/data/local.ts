@@ -8,6 +8,7 @@ import type {
   DataStore,
   Invite,
   InviteInfo,
+  PendingInvite,
   LoadedTactic,
   Member,
   NewComment,
@@ -215,6 +216,12 @@ export class LocalDataStore implements DataStore {
   async acceptInvite(): Promise<string> {
     throw new Error("Invites need a Supabase backend.");
   }
+
+  async listPendingInvites(): Promise<PendingInvite[]> {
+    return [];
+  }
+
+  async declineInvite() {}
 
   // ---------- tactics ----------
 

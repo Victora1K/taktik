@@ -7,6 +7,7 @@ import {
   commitRecording,
   deleteTokens,
   saveGroup,
+  applySideFormation,
   translateTokens,
   updatePhaseDuration,
 } from "@/lib/collab/actions";
@@ -127,6 +128,46 @@ describe("actions", () => {
     expect(tracks[0].id).toBe(replacement?.id);
     expect(tracks[0].id).not.toBe(first?.id);
     expect(tracks[0].keyframes.at(-1)?.x).toBe(4);
+  });
+
+  it("shifts a side onto a new formation without changing the shape of its motion", () => {
+    const state = createInitialState({
+      sport: "soccer",
+      homeCount: 5,
+      awayCount: 5,
+      formationId: "5-1-2-1",
+      awayFormationId: "5-2-1-1",
+      includeBall: false,
+    });
+    const doc = createDoc(state);
+    const tokenId = Object.values(state.tokens).find(
+      (token) => token.team === "home" && token.number === "1",
+    )!.id;
+    const layerId = Object.keys(state.layers)[0];
+    const start = state.tokens[tokenId];
+    commitRecording(
+      doc,
+      new Map([
+        [
+          tokenId,
+          [
+            { t: 0, x: start.x, y: start.y },
+            { t: 1000, x: start.x + 4, y: start.y },
+          ],
+        ],
+      ]),
+      { mode: "replace", activeLayerId: layerId, activeLayerIds: new Set([layerId]) },
+    );
+    applySideFormation(doc, "home", "5-1-1-2");
+    const next = docToState(doc);
+    const moved = next.tokens[tokenId];
+    const track = Object.values(next.tracks)[0];
+    expect(next.meta.homeFormationId).toBe("5-1-1-2");
+    expect(next.meta.awayFormationId).toBe("5-2-1-1");
+    expect(track.keyframes[0].x).toBeCloseTo(moved.x);
+    expect(track.keyframes[0].y).toBeCloseTo(moved.y);
+    expect(track.keyframes[1].x - track.keyframes[0].x).toBeCloseTo(4);
+    expect(track.keyframes[1].y - track.keyframes[0].y).toBeCloseTo(0);
   });
 
   it("translates a token's start position and its keyframes", () => {

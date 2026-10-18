@@ -8,6 +8,7 @@ import type {
   DataStore,
   Invite,
   InviteInfo,
+  PendingInvite,
   LoadedTactic,
   Member,
   NewComment,
@@ -94,8 +95,15 @@ export class SupabaseDataStore implements DataStore {
     const { data } = await this.sb.auth.getUser();
     if (!data.user) return null;
     this.uid = data.user.id;
-    const row = check(await this.sb.from("profiles").select("*").eq("id", data.user.id).maybeSingle());
-    return row ? mapProfile(row) : null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const row = check(await this.sb.from("profiles").select("*").eq("id", data.user.id).maybeSingle());
+      if (row) return mapProfile(row);
+      const ensured = await this.sb.rpc("ensure_profile");
+      const payload = Array.isArray(ensured.data) ? ensured.data[0] : ensured.data;
+      if (!ensured.error && payload) return mapProfile(payload);
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+    return null;
   }
 
   async updateMe(patch: Partial<Pick<Profile, "displayName" | "avatarColor" | "emailDigest">>) {
@@ -239,6 +247,24 @@ export class SupabaseDataStore implements DataStore {
 
   async acceptInvite(token: string) {
     return check(await this.sb.rpc("accept_invite", { p_token: token })) as string;
+  }
+
+  async listPendingInvites(): Promise<PendingInvite[]> {
+    const rows = check(await this.sb.rpc("list_my_pending_invites")) as any[];
+    return (rows ?? []).map((row) => ({
+      id: row.id,
+      token: row.token,
+      teamId: row.team_id,
+      teamName: row.team_name,
+      role: row.role,
+      inviterName: row.inviter_name ?? "A teammate",
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    }));
+  }
+
+  async declineInvite(token: string) {
+    check(await this.sb.rpc("decline_invite", { p_token: token }));
   }
 
   // ---------- tactics ----------

@@ -1,6 +1,6 @@
 # Taktik
 
-A collaborative tactics board for soccer, basketball and volleyball. Pick a sport, place your players and
+A collaborative tactics board for soccer, basketball, volleyball, football, baseball and tennis. Pick a sport, place your players and
 opponents on a to-scale field, record their movement by dragging them, and layer more runs on top while the
 clip replays. Teammates edit the same tactic live, with cursors and presence, and discuss it in comments pinned
 to a moment in the clip or a spot on the field.

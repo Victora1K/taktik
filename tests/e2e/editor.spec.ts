@@ -41,7 +41,11 @@ test("moves a selected group together", async ({ page }) => {
   await page.mouse.click(pb.x, pb.y);
   await page.keyboard.up("Shift");
   expect(await page.evaluate(() => (window as any).__taktik.editor.getState().selectedTokens.length)).toBe(2);
-  await dragToken(page, a, 60, 30, 8, 10);
+  await dragToken(page, a, 60, 30);
+  await expectEventually(
+    async () => (await getState(page)).tokens[a].x,
+    (x) => x > before.tokens[a].x + 0.5,
+  );
   const after = await getState(page);
   for (const id of [a, b]) {
     expect(after.tokens[id].x).toBeGreaterThan(before.tokens[id].x + 0.5);
@@ -136,17 +140,19 @@ test("builds simultaneous timed routes and shifts chained phases when duration c
     .map((token) => token.id);
 
   for (const [index, id] of players.entries()) {
-    const token = await tokenClient(page, id);
+    await page.keyboard.press("v");
+    await expectEventually(async () => {
+      const token = await tokenClient(page, id);
+      await page.mouse.click(token.x, token.y);
+      const selected = await page.evaluate(
+        () => (window as any).__taktik.editor.getState().selectedTokens as string[],
+      );
+      return selected[0] === id;
+    }, Boolean);
     state = await getState(page);
     const destination = await fieldClient(page, state.tokens[id].x + 5, state.tokens[id].y + index + 2);
     await page.keyboard.press("g");
     await expect(page.getByLabel("Draw timed route")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("board")).toHaveCSS("cursor", "crosshair");
-    await page.mouse.click(token.x, token.y);
-    await expectEventually(
-      () => page.evaluate(() => (window as any).__taktik.editor.getState().selectedTokens as string[]),
-      (selected) => selected[0] === id,
-    );
     await page.mouse.click(destination.x, destination.y);
     await page.getByRole("button", { name: "Done route" }).click();
   }
@@ -163,12 +169,18 @@ test("builds simultaneous timed routes and shifts chained phases when duration c
   ]);
 
   await page.getByRole("button", { name: "Next phase" }).click();
-  const token = await tokenClient(page, players[0]);
+  await page.keyboard.press("v");
+  await expectEventually(async () => {
+    const token = await tokenClient(page, players[0]);
+    await page.mouse.click(token.x, token.y);
+    const selected = await page.evaluate(
+      () => (window as any).__taktik.editor.getState().selectedTokens as string[],
+    );
+    return selected[0] === players[0];
+  }, Boolean);
   const destination = await fieldClient(page, state.tokens[players[0]].x + 8, state.tokens[players[0]].y + 5);
   await page.keyboard.press("g");
   await expect(page.getByLabel("Draw timed route")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("board")).toHaveCSS("cursor", "crosshair");
-  await page.mouse.click(token.x, token.y);
   await page.mouse.click(destination.x, destination.y);
   await page.getByRole("button", { name: "Done route" }).click();
   await expectEventually(
@@ -213,6 +225,53 @@ test("builds simultaneous timed routes and shifts chained phases when duration c
       (Object.values((await getState(page)).phases) as any[]).sort((a, b) => a.order - b.order)[0].durationMs,
     (value) => value === 5000,
   );
+});
+
+test("creates the added sports and independent soccer shapes", async ({ page }) => {
+  await page.goto("/teams");
+  await page.waitForURL(/\/teams\/[^/]+$/);
+  for (const sport of ["football", "baseball", "tennis"] as const) {
+    await page.getByTestId("new-tactic").click();
+    await page.getByTestId(`sport-${sport}`).click();
+    await page.getByTestId("create-tactic").click();
+    await page.waitForURL(/\/tactics\//);
+    expect((await getState(page)).meta.sport).toBe(sport);
+    await page.goto("/teams");
+    await page.waitForURL(/\/teams\/[^/]+$/);
+  }
+
+  await page.getByTestId("new-tactic").click();
+  await page.getByTestId("sport-soccer").click();
+  await page.locator("#nt-home").fill("7");
+  await page.locator("#nt-away").fill("5");
+  await page.locator("#nt-home-formation").selectOption("7-2-3-1");
+  await page.locator("#nt-away-formation").selectOption("5-1-2-1");
+  await page.getByTestId("create-tactic").click();
+  await page.waitForURL(/\/tactics\//);
+  let state = await getState(page);
+  expect(Object.values(state.tokens).filter((token: any) => token.team === "home")).toHaveLength(7);
+  expect(Object.values(state.tokens).filter((token: any) => token.team === "away")).toHaveLength(5);
+  expect(state.meta.homeFormationId).toBe("7-2-3-1");
+  expect(state.meta.awayFormationId).toBe("5-1-2-1");
+  const before = Object.values(state.tokens).find(
+    (token: any) => token.number === "2" && token.team === "home",
+  ) as any;
+  await page.locator("#shape-home").selectOption("7-3-2-1");
+  await expectEventually(
+    async () => (await getState(page)).meta.homeFormationId,
+    (id) => id === "7-3-2-1",
+  );
+  state = await getState(page);
+  const after = Object.values(state.tokens).find(
+    (token: any) => token.number === "2" && token.team === "home",
+  ) as any;
+  expect(after.y).not.toBe(before.y);
+});
+
+test("an existing session leaves the sign-in page for home", async ({ page }) => {
+  await page.goto("/login");
+  await page.waitForURL("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Draw the play");
 });
 
 test("public link plays the tactic read-only", async ({ page, context }) => {

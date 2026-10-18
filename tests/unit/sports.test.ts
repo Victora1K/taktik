@@ -3,7 +3,7 @@ import { encodeState } from "@/lib/collab/doc";
 import { fromBase64, fromByteaHex, toBase64, toByteaHex } from "@/lib/collab/encoding";
 import { createInitialState, nextNumber } from "@/lib/engine/factory";
 import { parseTacticJson } from "@/lib/editor/export";
-import { SPORT_LIST, sidePositions } from "@/lib/sports";
+import { formationsFor, getSport, SPORT_LIST, sidePositions } from "@/lib/sports";
 import { mirrorX } from "@/lib/sports/geometry";
 
 describe("sport configs", () => {
@@ -22,6 +22,50 @@ describe("sport configs", () => {
       expect(sport.defaultPerSide).toBeLessThanOrEqual(sport.maxPerSide);
     },
   );
+
+  it("creates football, baseball, and tennis at their standard sizes", () => {
+    const expected = [
+      ["football", 11],
+      ["baseball", 9],
+      ["tennis", 1],
+    ] as const;
+    for (const [sport, count] of expected) {
+      const state = createInitialState({ sport, homeCount: count, awayCount: count, includeBall: false });
+      expect(state.meta.sport).toBe(sport);
+      expect(Object.values(state.tokens).filter((token) => token.team === "home")).toHaveLength(count);
+      expect(Object.values(state.tokens).filter((token) => token.team === "away")).toHaveLength(count);
+    }
+    const doubles = createInitialState({
+      sport: "tennis",
+      homeCount: 2,
+      awayCount: 2,
+      formationId: "doubles",
+      awayFormationId: "doubles",
+      includeBall: false,
+    });
+    expect(Object.values(doubles.tokens)).toHaveLength(4);
+  });
+
+  it("gives each soccer side the formation that matches its own count", () => {
+    const state = createInitialState({
+      sport: "soccer",
+      homeCount: 7,
+      awayCount: 5,
+      formationId: "7-2-3-1",
+      awayFormationId: "5-1-2-1",
+      includeBall: false,
+    });
+    expect(formationsFor(getSport("soccer"), 7).map((item) => item.id)).toContain("7-2-3-1");
+    expect(formationsFor(getSport("soccer"), 5).map((item) => item.id)).toContain("5-1-2-1");
+    expect(state.meta.homeFormationId).toBe("7-2-3-1");
+    expect(state.meta.awayFormationId).toBe("5-1-2-1");
+    const home = Object.values(state.tokens).filter((token) => token.team === "home");
+    const away = Object.values(state.tokens).filter((token) => token.team === "away");
+    expect(home).toHaveLength(7);
+    expect(away).toHaveLength(5);
+    expect(new Set(home.map((token) => token.x)).size).toBeGreaterThan(1);
+    expect(away.every((token) => token.x > 50)).toBe(true);
+  });
 
   it("falls back to a grid in the correct half when counts do not match a formation", () => {
     for (const sport of SPORT_LIST) {

@@ -73,11 +73,15 @@ export function createInitialState(opts: NewTacticOptions): TacticState {
   );
   if (opts.includeBall !== false) add(makeToken({ team: "ball", x: sport.width / 2, y: sport.height / 2 }));
   const layer = makeLayer(0);
+  const homeFormationId = opts.formationId;
+  const awayFormationId = opts.awayFormationId ?? opts.formationId;
   return {
     meta: {
       sport: sport.id,
       title: opts.title?.trim() || `New ${sport.name.toLowerCase()} tactic`,
       durationMs: DEFAULT_DURATION_MS,
+      ...(homeFormationId ? { homeFormationId } : {}),
+      ...(awayFormationId ? { awayFormationId } : {}),
     },
     tokens,
     layers: { [layer.id]: layer },

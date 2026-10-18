@@ -35,8 +35,19 @@ function LoginForm() {
   const [busy, setBusy] = useState<"email" | "code" | "google" | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || (!loading && me)) router.replace(next);
+    if (!isSupabaseConfigured || (!loading && me)) {
+      router.replace(next);
+      router.refresh();
+    }
   }, [loading, me, next, router]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || loading || !me) return;
+    const timer = window.setTimeout(() => {
+      if (window.location.pathname === "/login") window.location.assign(next);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [loading, me, next]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : siteUrl();
   const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;

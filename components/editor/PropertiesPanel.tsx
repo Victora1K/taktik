@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import {
+  applySideFormation,
   clearMotion,
   clearPhaseRoutes,
   deleteAnnotations,
@@ -21,9 +22,60 @@ import { PALETTE, TEAM_COLORS } from "@/lib/engine/factory";
 import { phaseRouteCount } from "@/lib/engine/phases";
 import type { Annotation, Easing, TeamSide, Token, TokenShape } from "@/lib/engine/types";
 import { getSession } from "@/lib/editor/session";
+import { formationsFor, getSport } from "@/lib/sports";
 import { cancelRoute, finishRoute } from "@/lib/editor/phase-routing";
 import { clearSelection, selectTokens, useEditor, usePlayback } from "@/lib/editor/store";
 import { cn, formatTime } from "@/lib/utils";
+
+function FormationControls({ readOnly }: { readOnly: boolean }) {
+  const session = getSession();
+  const meta = useEditor((s) => s.state.meta);
+  const counts = useEditor(
+    useShallow((s) => ({
+      home: Object.values(s.state.tokens).filter((token) => token.team === "home").length,
+      away: Object.values(s.state.tokens).filter((token) => token.team === "away").length,
+    })),
+  );
+  if (!session) return null;
+  const sport = getSport(meta.sport);
+  const sides = [
+    { side: "home" as const, label: "Your shape", count: counts.home, selected: meta.homeFormationId },
+    { side: "away" as const, label: "Opponent shape", count: counts.away, selected: meta.awayFormationId },
+  ];
+  if (!sport.formations.length) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-ink-800 p-3">
+      <p className="text-xs font-medium text-slate-200">Starting shape</p>
+      {sides.map((item) => {
+        const shapes = formationsFor(sport, item.count);
+        const value = shapes.some((shape) => shape.id === item.selected) ? item.selected! : "";
+        return (
+          <div key={item.side}>
+            <Label htmlFor={`shape-${item.side}`}>{item.label}</Label>
+            <Select
+              id={`shape-${item.side}`}
+              value={value}
+              disabled={readOnly || !shapes.length}
+              onChange={(event) => {
+                if (event.target.value) applySideFormation(session.doc, item.side, event.target.value);
+              }}
+            >
+              <option value="">{shapes.length ? "Current positions" : "Even spread"}</option>
+              {shapes.map((shape) => (
+                <option key={shape.id} value={shape.id}>
+                  {shape.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        );
+      })}
+      <p className="text-xs text-slate-500">
+        Changing a shape moves those players and keeps their recorded paths at the same pace.
+      </p>
+    </div>
+  );
+}
 
 function common<T>(values: T[]): T | undefined {
   return values.length && values.every((v) => v === values[0]) ? values[0] : undefined;
@@ -46,6 +98,7 @@ export function PropertiesPanel({ readOnly, members }: { readOnly: boolean; memb
   return (
     <div className="space-y-3 p-4 text-sm text-slate-400">
       <p className="font-medium text-slate-200">Nothing selected</p>
+      <FormationControls readOnly={readOnly} />
       <ul className="list-disc space-y-1.5 pl-4 text-xs">
         <li>Click a player to select it; shift-click or drag a box to select several.</li>
         <li>Drag selected players to move them (and their whole run).</li>
@@ -99,6 +152,7 @@ function TokenProps({
 
   return (
     <fieldset disabled={readOnly} className="space-y-4 p-4">
+      <FormationControls readOnly={readOnly} />
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">
           {single

@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "taktiks - collaborative tactics board", template: "%s | taktiks" },
   description:
-    "Draw up plays for soccer, basketball and volleyball, animate player movement, and plan tactics together with your team in real time.",
+    "Draw up plays for soccer, basketball, volleyball, football, baseball and tennis, animate player movement, and plan tactics together with your team in real time.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
 };
 

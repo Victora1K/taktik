@@ -1,10 +1,28 @@
+import { baseball } from "./baseball";
 import { basketball } from "./basketball";
+import { football } from "./football";
 import { soccer } from "./soccer";
-import type { SportConfig, SportId } from "./types";
+import { tennis } from "./tennis";
+import type { Formation, SportConfig, SportId } from "./types";
 import { volleyball } from "./volleyball";
 
-export const SPORTS: Record<SportId, SportConfig> = { soccer, basketball, volleyball };
-export const SPORT_LIST: SportConfig[] = [soccer, basketball, volleyball];
+export const SPORTS: Record<SportId, SportConfig> = {
+  soccer,
+  basketball,
+  volleyball,
+  football,
+  baseball,
+  tennis,
+};
+export const SPORT_LIST: SportConfig[] = [soccer, basketball, volleyball, football, baseball, tennis];
+
+export function formationPlayerCount(formation: Formation) {
+  return formation.playerCount ?? formation.positions.length;
+}
+
+export function formationsFor(sport: SportConfig, count: number) {
+  return sport.formations.filter((formation) => formationPlayerCount(formation) === count);
+}
 
 export function getSport(id: string): SportConfig {
   return SPORTS[id as SportId] ?? soccer;
@@ -24,7 +42,8 @@ export function sidePositions(
   count: number,
   formationId?: string,
 ): [number, number][] {
-  const formation = sport.formations.find((f) => f.id === formationId) ?? sport.formations[0];
+  const sized = formationsFor(sport, count);
+  const formation = sized.find((item) => item.id === formationId) ?? sized[0];
   if (formation && formation.positions.length === count) {
     if (side === "home") return formation.positions.map(([x, y]) => [x, y]);
     if (formation.awayPositions?.length === count) return formation.awayPositions.map(([x, y]) => [x, y]);

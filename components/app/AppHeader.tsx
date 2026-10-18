@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
 import { Menu, MenuItem } from "@/components/ui/menu";
 import { toast, toastError } from "@/components/ui/toast";
-import type { Notification } from "@/lib/data";
+import { ROLE_LABELS, type Notification, type PendingInvite } from "@/lib/data";
 import { PALETTE } from "@/lib/engine/factory";
 import { cn, timeAgo } from "@/lib/utils";
 import { Logo } from "./Logo";
@@ -20,21 +20,46 @@ function NotificationsBell() {
   const { data } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
-  const load = useCallback(
-    () =>
-      data
-        .listNotifications()
-        .then(setItems)
-        .catch(() => undefined),
-    [data],
-  );
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const load = useCallback(() => {
+    void data
+      .listNotifications()
+      .then(setItems)
+      .catch(() => undefined);
+    void data
+      .listPendingInvites()
+      .then(setInvites)
+      .catch(() => undefined);
+  }, [data]);
 
   useEffect(() => {
     void load();
     return data.subscribeNotifications(() => void load());
   }, [data, load]);
 
-  const unread = items.filter((n) => !n.readAt).length;
+  const unreadNotes = items.filter((n) => !n.readAt).length;
+  const unread = unreadNotes + invites.length;
+
+  async function accept(invite: PendingInvite) {
+    try {
+      const teamId = await data.acceptInvite(invite.token);
+      toast(`Joined ${invite.teamName}`, "success");
+      load();
+      router.push(`/teams/${teamId}`);
+      router.refresh();
+    } catch (e) {
+      toastError(e);
+    }
+  }
+
+  async function decline(invite: PendingInvite) {
+    try {
+      await data.declineInvite(invite.token);
+      load();
+    } catch (e) {
+      toastError(e);
+    }
+  }
 
   return (
     <Menu
@@ -60,7 +85,7 @@ function NotificationsBell() {
         <div>
           <div className="flex items-center justify-between px-2.5 py-1.5">
             <span className="text-sm font-semibold">Notifications</span>
-            {unread > 0 && (
+            {unreadNotes > 0 && (
               <button
                 className="text-xs text-brand-400 hover:underline"
                 onClick={() => data.markNotificationsRead().then(load)}
@@ -69,10 +94,34 @@ function NotificationsBell() {
               </button>
             )}
           </div>
-          {items.length === 0 && (
+          {items.length === 0 && invites.length === 0 && (
             <p className="px-2.5 py-4 text-center text-sm text-slate-500">You are all caught up.</p>
           )}
           <div className="scrollbar-thin max-h-80 overflow-y-auto">
+            {invites.map((invite) => (
+              <div key={invite.id} className="rounded-md px-2.5 py-2 text-sm">
+                <p>
+                  <b>{invite.inviterName}</b> invited you to <b>{invite.teamName}</b> as{" "}
+                  {ROLE_LABELS[invite.role]}.
+                </p>
+                <p className="text-xs text-slate-500">{timeAgo(invite.createdAt)}</p>
+                <div className="mt-2 flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => {
+                      close();
+                      void accept(invite);
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => void decline(invite)}>
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            ))}
             {items.map((n) => (
               <MenuItem
                 key={n.id}

@@ -22,6 +22,8 @@ export function docToState(doc: Y.Doc): TacticState {
       sport: meta.sport ?? "soccer",
       title: meta.title ?? "Untitled tactic",
       durationMs: meta.durationMs ?? DEFAULT_DURATION_MS,
+      ...(typeof meta.homeFormationId === "string" ? { homeFormationId: meta.homeFormationId } : {}),
+      ...(typeof meta.awayFormationId === "string" ? { awayFormationId: meta.awayFormationId } : {}),
     },
     tokens: collection(doc, "tokens").toJSON(),
     layers: collection(doc, "layers").toJSON(),
