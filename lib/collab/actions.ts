@@ -2,11 +2,13 @@ import type * as Y from "yjs";
 import { makeLayer, makeToken, newId, nextNumber } from "@/lib/engine/factory";
 import type { Point } from "@/lib/engine/interpolate";
 import { orderedPhases, phaseBounds, phasesDuration, routeKeyframes } from "@/lib/engine/phases";
+import { bakeInstructions } from "@/lib/engine/instructions";
 import { getSport, sidePositions } from "@/lib/sports";
 import { cutRange, shiftKeyframes, trackEnd, trackStart, trimTrack } from "@/lib/engine/tracks";
 import type {
   Annotation,
   Easing,
+  Instruction,
   Keyframe,
   Layer,
   Phase,
@@ -16,12 +18,13 @@ import type {
   TokenGroup,
   Track,
 } from "@/lib/engine/types";
-import { collection, LOCAL_ORIGIN, metaMap } from "./doc";
+import { collection, docToState, LOCAL_ORIGIN, metaMap } from "./doc";
 
 const tokens = (doc: Y.Doc) => collection<Token>(doc, "tokens");
 const layers = (doc: Y.Doc) => collection<Layer>(doc, "layers");
 const tracks = (doc: Y.Doc) => collection<Track>(doc, "tracks");
 const phases = (doc: Y.Doc) => collection<Phase>(doc, "phases");
+const instructions = (doc: Y.Doc) => collection<Instruction>(doc, "instructions");
 const annotations = (doc: Y.Doc) => collection<Annotation>(doc, "annotations");
 const groups = (doc: Y.Doc) => collection<TokenGroup>(doc, "groups");
 
@@ -125,6 +128,38 @@ export function commitPhaseRoute(
     syncPhaseDuration(doc);
   });
   return created;
+}
+
+/** Store one instruction per player in the phase and replace that player's compiled phase track. */
+export function commitPhaseInstructions(
+  doc: Y.Doc,
+  phaseId: string,
+  incoming: Instruction[],
+  layerId: string,
+  userId?: string,
+) {
+  tx(doc, () => {
+    const map = instructions(doc);
+    const chosen = new Map<string, Instruction>();
+    for (const instruction of incoming)
+      if (instruction.phaseId === phaseId && tokens(doc).has(instruction.tokenId))
+        chosen.set(instruction.tokenId, instruction);
+    for (const [id, instruction] of [...map.entries()])
+      if (instruction.phaseId === phaseId && chosen.has(instruction.tokenId)) map.delete(id);
+    for (const instruction of chosen.values()) map.set(instruction.id, instruction);
+    const baked = bakeInstructions(docToState(doc), phaseId);
+    const tmap = tracks(doc);
+    for (const tokenId of chosen.keys()) {
+      for (const [id, track] of [...tmap.entries()])
+        if (track.phaseId === phaseId && track.tokenId === tokenId && track.layerId === layerId)
+          tmap.delete(id);
+      const keyframes = baked[tokenId]?.map(roundKf);
+      if (!keyframes || keyframes.length < 2) continue;
+      const id = newId();
+      tmap.set(id, { id, tokenId, layerId, phaseId, keyframes, easing: "smooth", createdBy: userId });
+    }
+    syncPhaseDuration(doc);
+  });
 }
 
 export function clearPhaseRoutes(doc: Y.Doc, phaseId: string, tokenIds: string[], layerId?: string) {

@@ -32,6 +32,8 @@ export const emptyState = (): TacticState => ({
   layers: {},
   tracks: {},
   phases: {},
+  instructions: {},
+  voiceClips: {},
   annotations: {},
   groups: {},
 });

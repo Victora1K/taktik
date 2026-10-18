@@ -82,6 +82,39 @@ export interface Phase {
   order: number;
 }
 
+export type InstructionKind = "follow" | "mark" | "towardBall" | "holdZone" | "coverMidpoint";
+
+/** One automatic behavior for a player during a phase. Compiled into ordinary tracks. */
+export interface Instruction {
+  id: string;
+  phaseId: string;
+  tokenId: string;
+  kind: InstructionKind;
+  /** Player, opponent, or ball to follow, mark, or approach. */
+  targetId?: string;
+  /** Second target for cover-midpoint. */
+  targetIdB?: string;
+  /** Field point for hold-zone, in meters. */
+  zone?: { x: number; y: number };
+  /** Maximum travel speed in meters per second. */
+  maxSpeed: number;
+}
+
+export type VoiceKind = "instruction" | "tape";
+
+/** Metadata only. The audio bytes live in storage, not in the tactic document. */
+export interface VoiceClip {
+  id: string;
+  kind: VoiceKind;
+  instructionId?: string;
+  phaseId?: string;
+  tokenId?: string;
+  tStartMs: number;
+  durationMs: number;
+  storagePath: string;
+  muted: boolean;
+}
+
 export interface TacticMetaDoc {
   sport: SportId;
   title: string;
@@ -97,6 +130,8 @@ export interface TacticState {
   layers: Record<string, Layer>;
   tracks: Record<string, Track>;
   phases: Record<string, Phase>;
+  instructions: Record<string, Instruction>;
+  voiceClips: Record<string, VoiceClip>;
   annotations: Record<string, Annotation>;
   groups: Record<string, TokenGroup>;
 }

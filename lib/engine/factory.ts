@@ -87,6 +87,8 @@ export function createInitialState(opts: NewTacticOptions): TacticState {
     layers: { [layer.id]: layer },
     tracks: {},
     phases: {},
+    instructions: {},
+    voiceClips: {},
     annotations: {},
     groups: {},
   };

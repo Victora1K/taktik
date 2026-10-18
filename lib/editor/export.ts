@@ -92,7 +92,7 @@ export function parseTacticJson(text: string): TacticState {
   if (!isObj(state) || !isObj(state.meta) || !isObj(state.tokens))
     throw new Error("This file is not a Taktik tactic");
   if (!isSportId(String(state.meta.sport))) throw new Error("Unknown sport in file");
-  for (const key of ["layers", "tracks", "phases", "annotations", "groups"] as const) {
+  for (const key of ["layers", "tracks", "phases", "instructions", "voiceClips", "annotations", "groups"] as const) {
     if (state[key] === undefined) state[key] = {};
     if (!isObj(state[key])) throw new Error(`Invalid ${key} in file`);
   }

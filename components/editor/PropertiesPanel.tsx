@@ -1,6 +1,7 @@
 "use client";
 
 import { Copy, Eraser, Trash2, Users } from "lucide-react";
+import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import {
   applySideFormation,
   clearMotion,
   clearPhaseRoutes,
+  commitPhaseInstructions,
   deleteAnnotations,
   deleteTokens,
   duplicateTokens,
@@ -18,9 +20,9 @@ import {
   updateTokens,
 } from "@/lib/collab/actions";
 import type { Member } from "@/lib/data";
-import { PALETTE, TEAM_COLORS } from "@/lib/engine/factory";
+import { PALETTE, TEAM_COLORS, newId } from "@/lib/engine/factory";
 import { phaseRouteCount } from "@/lib/engine/phases";
-import type { Annotation, Easing, TeamSide, Token, TokenShape } from "@/lib/engine/types";
+import type { Annotation, Easing, InstructionKind, TeamSide, Token, TokenShape } from "@/lib/engine/types";
 import { getSession } from "@/lib/editor/session";
 import { formationsFor, getSport } from "@/lib/sports";
 import { cancelRoute, finishRoute } from "@/lib/editor/phase-routing";
@@ -149,6 +151,8 @@ function TokenProps({
   const shape = common(tokens.map((t) => t.shape));
   const team = common(tokens.map((t) => t.team));
   const size = common(tokens.map((t) => t.size)) ?? 1;
+  const [instructionKind, setInstructionKind] = useState<InstructionKind>("follow");
+  const [instructionTarget, setInstructionTarget] = useState("");
 
   return (
     <fieldset disabled={readOnly} className="space-y-4 p-4">
@@ -385,6 +389,69 @@ function TokenProps({
             Select one player, choose Draw timed route, then click waypoints. All routes in this phase play
             together. Record still captures freeform runs on the same timeline.
           </p>
+          {!readOnly && single && single.team !== "ball" && (
+            <div className="space-y-1">
+              <Label htmlFor="instruction-kind">Instruction</Label>
+              <Select
+                id="instruction-kind"
+                value={instructionKind}
+                onChange={(event) => setInstructionKind(event.target.value as InstructionKind)}
+              >
+                <option value="follow">Follow player</option>
+                <option value="mark">Man mark</option>
+                <option value="towardBall">Move toward ball</option>
+                <option value="holdZone">Hold this spot</option>
+              </Select>
+              {instructionKind !== "towardBall" && instructionKind !== "holdZone" && (
+                <Select
+                  id="instruction-target"
+                  value={instructionTarget}
+                  onChange={(event) => setInstructionTarget(event.target.value)}
+                  aria-label="Instruction target"
+                >
+                  <option value="">Choose a player</option>
+                  {Object.values(useEditor.getState().state.tokens)
+                    .filter((token) => token.id !== single.id && token.team !== "ball")
+                    .map((token) => (
+                      <option key={token.id} value={token.id}>
+                        {token.team} {token.number}
+                      </option>
+                    ))}
+                </Select>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full justify-center"
+                disabled={
+                  !route.activeLayerId ||
+                  ((instructionKind === "follow" || instructionKind === "mark") && !instructionTarget)
+                }
+                onClick={() => {
+                  if (!route.activeLayerId) return;
+                  commitPhaseInstructions(
+                    session.doc,
+                    activePhase.id,
+                    [
+                      {
+                        id: newId(),
+                        phaseId: activePhase.id,
+                        tokenId: single.id,
+                        kind: instructionKind,
+                        targetId: instructionTarget || undefined,
+                        zone: instructionKind === "holdZone" ? { x: single.x, y: single.y } : undefined,
+                        maxSpeed: 5,
+                      },
+                    ],
+                    route.activeLayerId,
+                    session.userId,
+                  );
+                }}
+              >
+                Apply instruction
+              </Button>
+            </div>
+          )}
           {!readOnly && single && (
             <Button
               size="sm"
