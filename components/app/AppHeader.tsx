@@ -16,7 +16,7 @@ import { PALETTE } from "@/lib/engine/factory";
 import { cn, timeAgo } from "@/lib/utils";
 import { Logo } from "./Logo";
 
-function NotificationsBell() {
+export function NotificationsBell() {
   const { data } = useSession();
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);

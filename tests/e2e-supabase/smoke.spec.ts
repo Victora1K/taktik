@@ -137,6 +137,7 @@ test("a signed-in invitee can accept a team invitation from the notification bel
 
   const page = await signIn(browser, guest.email, "/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Draw the play");
+  await expect(page.getByLabel(/Notifications/)).toBeVisible();
   await page.getByLabel(/Notifications/).click();
   await expect(page.getByText("Invite FC")).toBeVisible();
   await page.getByRole("button", { name: "Accept" }).click();

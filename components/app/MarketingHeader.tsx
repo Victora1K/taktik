@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "@/components/providers";
+import { NotificationsBell } from "./AppHeader";
 import { Logo } from "./Logo";
 
 export function MarketingHeader() {
@@ -16,6 +17,7 @@ export function MarketingHeader() {
             Sign in
           </Link>
         )}
+        {!loading && me && <NotificationsBell />}
         <Link
           href="/teams"
           className="rounded-md bg-brand-500 px-3.5 py-2 font-semibold text-ink-950 hover:bg-brand-400"
