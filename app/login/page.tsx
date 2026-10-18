@@ -107,7 +107,7 @@ function LoginForm() {
         <div>
           <h1 className="text-xl font-bold">Sign in to taktiks</h1>
           <p className="mt-1 text-sm text-slate-400">
-            No password needed. We will email a 6-digit code and a sign-in link.
+            No password needed. We will email a 6-digit code.
           </p>
         </div>
         {loading || me ? (
@@ -127,8 +127,7 @@ function LoginForm() {
             }}
           >
             <p className="text-sm text-slate-300">
-              Enter the 6-digit code sent to <b>{email}</b>. Use it on this device if your mailbox is open
-              somewhere else. The email also has a sign-in link.
+              Enter the 6-digit code sent to <b>{email}</b>. The email contains only that code.
             </p>
             <div>
               <Label htmlFor="code">6-digit code</Label>

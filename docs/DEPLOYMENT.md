@@ -34,8 +34,8 @@ For **each** project:
      `https://*-<your-vercel-team>.vercel.app/auth/callback` so preview deploys can sign in.
 
 3. **Auth -> Email Templates -> Magic Link.** Paste `supabase/templates/magic_link.html` and set the subject to
-   "Your taktiks sign-in code". Set the email OTP length to 6. The message includes that code, which the login
-   page accepts with `verifyOtp`, and a link that signs in through `/auth/callback?token_hash=...` on any device.
+   "Your taktiks sign-in code". Set the email OTP length to 6. The message contains only that code, which the
+   login page accepts with `verifyOtp`. It does not include a sign-in link.
 
 4. **Auth -> SMTP.** Use Resend's SMTP (`smtp.resend.com`, port 465, user `resend`, password = your Resend API
    key) and a sender on your verified domain. Supabase's built-in mailer is limited to a few emails per hour and
